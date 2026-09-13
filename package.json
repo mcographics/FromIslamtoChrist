@@ -1,6 +1,6 @@
 {
   "name": "from-darkness-to-light",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "A private Bible-centered Electron and React prototype for From Darkness to Light.",
@@ -47,9 +47,11 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "logo/**/*",
       "package.json"
     ],
     "win": {
+      "icon": "logo/icon.png",
       "target": [
         {
           "target": "nsis",

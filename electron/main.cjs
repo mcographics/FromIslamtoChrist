@@ -5,8 +5,11 @@ const path = require('node:path');
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const dataRoot = path.resolve(__dirname, '..', 'Data');
+const logoRoot = path.resolve(__dirname, '..', 'logo');
+const appIconPath = path.join(logoRoot, 'icon.png');
 const maxPreviewBytes = 64 * 1024;
 let mainWindow = null;
+let splashWindow = null;
 let lastUpdateStatus = { status: 'idle' };
 const previewableExtensions = new Set([
   '', '.ann', '.css', '.csv', '.gitattributes', '.gitignore', '.html', '.ipynb', '.js',
@@ -102,6 +105,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 680,
     backgroundColor: '#10212d',
+    icon: appIconPath,
     title: 'From Darkness to Light',
     show: false,
     webPreferences: {
@@ -115,6 +119,10 @@ function createWindow() {
   window.setMenuBarVisibility(false);
 
   window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+    splashWindow = null;
+  });
   mainWindow = window;
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = null;
@@ -127,7 +135,31 @@ function createWindow() {
   }
 }
 
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 520,
+    height: 520,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    frame: false,
+    show: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    backgroundColor: '#10212d',
+    icon: appIconPath,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+}
+
 app.whenReady().then(() => {
+  createSplashWindow();
   createWindow();
   setupAutoUpdater();
 
@@ -137,5 +169,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
   if (process.platform !== 'darwin') app.quit();
 });

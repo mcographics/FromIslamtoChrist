@@ -10,6 +10,7 @@ This document records the first implementation decision for the From Darkness to
 - Android minimum SDK: 24.
 - Android compile/target SDK: 36.
 - Android build format: debug APK for the current prototype and test release workflow.
+- App identity: `logo/icon.png` is used for the Windows and Android application icon; `logo/logo.png` is used by the Electron startup window and Android native splash.
 
 Using the shared renderer preserves the same Home, Bible, Learn, article detail, Journey, Saved, Source Library, Settings, privacy, theme, and local-progress features on both platforms. The Android shell adds native packaging and the phone navigation drawer without introducing an account or backend requirement.
 
@@ -31,6 +32,6 @@ Before a public content release, complete the license manifest and attribution r
 2. Confirm the Android signing/distribution decision before replacing the debug APK with a production-signed artifact.
 3. Update the version in `package.json` and the Android `versionName`/`versionCode`.
 4. Run `npm run build`, `npm run dist:win`, and `npm run android:debug` locally.
-5. Create and push a tag such as `v0.1.0`.
+5. Create and push a tag such as `v0.1.1`.
 6. GitHub Actions builds the Windows installer and Android test APK. For a tag, it creates the GitHub release consumed by both update paths.
 7. Verify the release assets and checksums publicly before calling the release available.

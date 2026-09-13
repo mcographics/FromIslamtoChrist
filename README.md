@@ -11,9 +11,10 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 - Guided Journey with locally persisted progress
 - Saved items with locally persisted bookmarks
 - Light and dark modes with a persistent header switch and Settings controls
+- Branded application identity using `logo/icon.png` for the app icon and `logo/logo.png` for desktop and Android splash screens
 - Mobile-first Android shell built with Capacitor, including a working phone navigation drawer
 - GitHub-linked update checks for Android and Electron; Windows packaged builds use `electron-updater`
-- Source Library indexing all 1,562 files in `Data` by collection, type, size, and review status
+- Source Library indexing all 1,566 files in `Data` by collection, type, size, and review status
 - Safe Electron previews for readable source files plus a generated John 1 runtime sample from the structured KJV JSON
 - Electron window configured with context isolation, no Node integration, and a sandboxed renderer
 
