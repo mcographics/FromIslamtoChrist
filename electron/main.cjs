@@ -1,0 +1,141 @@
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+
+const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
+const dataRoot = path.resolve(__dirname, '..', 'Data');
+const maxPreviewBytes = 64 * 1024;
+let mainWindow = null;
+let lastUpdateStatus = { status: 'idle' };
+const previewableExtensions = new Set([
+  '', '.ann', '.css', '.csv', '.gitattributes', '.gitignore', '.html', '.ipynb', '.js',
+  '.json', '.key', '.md', '.pl', '.pos', '.py', '.scss', '.sh', '.txt', '.tf', '.xml',
+  '.xhtml', '.yaml', '.yml',
+]);
+
+function resolveDataPath(relativePath) {
+  if (typeof relativePath !== 'string' || relativePath.includes('\0')) return null;
+  const resolved = path.resolve(dataRoot, relativePath);
+  const rootWithSeparator = `${dataRoot}${path.sep}`;
+  if (resolved !== dataRoot && !resolved.toLowerCase().startsWith(rootWithSeparator.toLowerCase())) return null;
+  return resolved;
+}
+
+ipcMain.handle('data:preview', async (_event, relativePath) => {
+  const resolved = resolveDataPath(relativePath);
+  if (!resolved) return { ok: false, message: 'That data path is not available.' };
+
+  try {
+    const stats = await fs.stat(resolved);
+    const extension = path.extname(resolved).toLowerCase();
+    if (!previewableExtensions.has(extension)) {
+      return { ok: true, kind: 'binary', message: 'This asset is catalogued locally but is not rendered as text in the prototype.' };
+    }
+    if (stats.size > maxPreviewBytes) {
+      return { ok: true, kind: 'large', message: `This text asset is ${Math.round(stats.size / 1024)} KB. Preview is limited to 64 KB.` };
+    }
+    const text = await fs.readFile(resolved, 'utf8');
+    return { ok: true, kind: 'text', text, truncated: false };
+  } catch (error) {
+    return { ok: false, message: `Preview unavailable: ${error.message}` };
+  }
+});
+
+function publishUpdateStatus(status, details = {}) {
+  lastUpdateStatus = { status, ...details };
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:status', lastUpdateStatus);
+}
+
+function setupAutoUpdater() {
+  if (isDevelopment) {
+    publishUpdateStatus('development', { message: 'Updates are checked from packaged builds.' });
+    return;
+  }
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => publishUpdateStatus('checking'));
+  autoUpdater.on('update-available', (info) => publishUpdateStatus('available', { version: info.version, releaseName: info.releaseName || null }));
+  autoUpdater.on('update-not-available', (info) => publishUpdateStatus('current', { version: info.version || app.getVersion() }));
+  autoUpdater.on('download-progress', (progress) => publishUpdateStatus('downloading', { percent: Math.round(progress.percent), bytesPerSecond: progress.bytesPerSecond }));
+  autoUpdater.on('update-downloaded', (info) => publishUpdateStatus('downloaded', { version: info.version, releaseName: info.releaseName || null }));
+  autoUpdater.on('error', (error) => publishUpdateStatus('error', { message: error?.message || 'Update check failed.' }));
+
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((error) => publishUpdateStatus('error', { message: error?.message || 'Update check failed.' }));
+  }, 2500);
+}
+
+ipcMain.handle('app:update-check', async () => {
+  if (isDevelopment) return { status: 'development', message: 'Updates are checked from packaged builds.' };
+  try {
+    await autoUpdater.checkForUpdates();
+    return lastUpdateStatus;
+  } catch (error) {
+    publishUpdateStatus('error', { message: error?.message || 'Update check failed.' });
+    return lastUpdateStatus;
+  }
+});
+
+ipcMain.handle('app:update-install', () => {
+  if (isDevelopment) return { ok: false, message: 'Install updates from a packaged build.' };
+  autoUpdater.quitAndInstall(false, true);
+  return { ok: true };
+});
+
+ipcMain.handle('app:open-external', async (_event, value) => {
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Only web links can be opened.');
+    await shell.openExternal(url.toString());
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error?.message || 'That link could not be opened.' };
+  }
+});
+
+function createWindow() {
+  const window = new BrowserWindow({
+    width: 1440,
+    height: 940,
+    minWidth: 980,
+    minHeight: 680,
+    backgroundColor: '#10212d',
+    title: 'From Darkness to Light',
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+  });
+
+  window.setMenuBarVisibility(false);
+
+  window.once('ready-to-show', () => window.show());
+  mainWindow = window;
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null;
+  });
+
+  if (isDevelopment) {
+    window.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    window.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  }
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdater();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});

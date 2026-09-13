@@ -1,0 +1,1358 @@
+{
+  "translation": "KJV",
+  "source": "Data/strongs/kjv-HG num/Jhn.json",
+  "licenseStatus": "needs-review",
+  "book": "John",
+  "chapter": 1,
+  "verses": [
+    {
+      "number": 1,
+      "reference": "John 1:1",
+      "text": "In the beginning was the Word, and the Word was with God, and the Word was God.",
+      "strongs": [
+        "G1722",
+        "G746",
+        "G2258",
+        "G3056",
+        "G2532",
+        "G3056",
+        "G2258",
+        "G4314",
+        "G2316",
+        "G2532",
+        "G3056",
+        "G2258"
+      ],
+      "translations": {
+        "en": "In the beginning was the Word, and the Word was with God, and the Word was God.",
+        "bg": "В начало бе Словото; и Словото беше у Бога; и Словото бе Бог.",
+        "ch": "太初有道，道与　神同在，道就是　神。",
+        "sp": "EN el principio era el Verbo, y el Verbo era con Dios, y el Verbo era Dios."
+      }
+    },
+    {
+      "number": 2,
+      "reference": "John 1:2",
+      "text": "The same was in the beginning with God.",
+      "strongs": [
+        "G3778",
+        "G2258",
+        "G1722",
+        "G746",
+        "G4314"
+      ],
+      "translations": {
+        "en": "The same was in the beginning with God.",
+        "bg": "То в начало беше у Бога.",
+        "ch": "这道太初与　神同在。",
+        "sp": "Éste era en el principio con Dios."
+      }
+    },
+    {
+      "number": 3,
+      "reference": "John 1:3",
+      "text": "All things were made by him; and without him was not any thing made that was made.",
+      "strongs": [
+        "G3956",
+        "G1096",
+        "G1223",
+        "G846",
+        "G2532",
+        "G5565",
+        "G846",
+        "G1096",
+        "G3761",
+        "G1520",
+        "G1096",
+        "G3739"
+      ],
+      "translations": {
+        "en": "All things were made by him; and without him was not any thing made that was made.",
+        "bg": "Всичко чрез Него стана; и без Него не е станало нищо от това, което е станало.",
+        "ch": "万物是借著他造的；凡被造的，没有一样不是借著他造的。",
+        "sp": "Todas las cosas por él fueron hechas; y sin él nada de lo que es hecho, fué hecho."
+      }
+    },
+    {
+      "number": 4,
+      "reference": "John 1:4",
+      "text": "In him was life; and the life was the light of men.",
+      "strongs": [
+        "G1722",
+        "G846",
+        "G2258",
+        "G2222",
+        "G2532",
+        "G2222",
+        "G2258",
+        "G5457"
+      ],
+      "translations": {
+        "en": "In him was life; and the life was the light of men.",
+        "bg": "В Него беше живот и животът беше светлината на хората.",
+        "ch": "生命在他里头，这生命就是人的光。",
+        "sp": "En él estaba la vida, y la vida era la luz de los hombres."
+      }
+    },
+    {
+      "number": 5,
+      "reference": "John 1:5",
+      "text": "And the light shineth in darkness; and the darkness comprehended it not.",
+      "strongs": [
+        "G2532",
+        "G5457",
+        "G5316",
+        "G1722",
+        "G4653",
+        "G2532",
+        "G4653",
+        "G2638",
+        "G846"
+      ],
+      "translations": {
+        "en": "And the light shineth in darkness; and the darkness comprehended it not.",
+        "bg": "И светлината свети в тъмнината; а тъмнината не я схвана.",
+        "ch": "光照在黑暗里，黑暗却不接受光。",
+        "sp": "Y la luz en las tinieblas resplandece; mas las tinieblas no la comprendieron."
+      }
+    },
+    {
+      "number": 6,
+      "reference": "John 1:6",
+      "text": "There was a man sent from God, whose name was John.",
+      "strongs": [
+        "G1096",
+        "G444",
+        "G649",
+        "G3844",
+        "G2316",
+        "G846",
+        "G3686"
+      ],
+      "translations": {
+        "en": "There was a man sent from God, whose name was John.",
+        "bg": "Яви се човек, изпратен от Бога, на име Йоан.",
+        "ch": "有一个人，是从　神那里差来的，名叫约翰。",
+        "sp": "Fué un hombre enviado de Dios, el cual se llamaba Juan."
+      }
+    },
+    {
+      "number": 7,
+      "reference": "John 1:7",
+      "text": "The same came for a witness, to bear witness of the Light, that all men through him might believe.",
+      "strongs": [
+        "G3778",
+        "G2064",
+        "G1519",
+        "G3141",
+        "G2443",
+        "G3140",
+        "G4012",
+        "G5457",
+        "G2443",
+        "G3956",
+        "G1223",
+        "G846"
+      ],
+      "translations": {
+        "en": "The same came for a witness, to bear witness of the Light, that all men through him might believe.",
+        "bg": "Той дойде за свидетелство, да свидетелства за светлината, за да повярват всички чрез него.",
+        "ch": "这人来，为要作见证，就是为光作见证，叫众人因他可以信。",
+        "sp": "Éste vino por testimonio, para que diese testimonio de la luz, para que todos creyesen por él."
+      }
+    },
+    {
+      "number": 8,
+      "reference": "John 1:8",
+      "text": "He was not that Light, but was sent to bear witness of that Light.",
+      "strongs": [
+        "G2258",
+        "G3756",
+        "G1565",
+        "G5457",
+        "G235",
+        "G2443",
+        "G3140",
+        "G4012"
+      ],
+      "translations": {
+        "en": "He was not that Light, but was sent to bear witness of that Light.",
+        "bg": "Той не беше светлината, но свидетелства за светлината;",
+        "ch": "他不是那光，乃是要为光作见证。",
+        "sp": "No era él la luz, sino para que diese testimonio de la luz."
+      }
+    },
+    {
+      "number": 9,
+      "reference": "John 1:9",
+      "text": "That was the true Light, which lighteth every man that cometh into the world.",
+      "strongs": [
+        "G2258",
+        "G228",
+        "G5457",
+        "G3739",
+        "G5461",
+        "G3956",
+        "G444",
+        "G2064",
+        "G1519"
+      ],
+      "translations": {
+        "en": "That was the true Light, which lighteth every man that cometh into the world.",
+        "bg": "това беше истинската светлина, която, идеща на света, осветлява всеки човек.",
+        "ch": "那光是真光，照亮一切生在世上的人。",
+        "sp": "Aquel era la luz verdadera, que alumbra á todo hombre que viene á este mundo."
+      }
+    },
+    {
+      "number": 10,
+      "reference": "John 1:10",
+      "text": "He was in the world, and the world was made by him, and the world knew him not.",
+      "strongs": [
+        "G2258",
+        "G1722",
+        "G2889",
+        "G2532",
+        "G2889",
+        "G1096",
+        "G1223",
+        "G846",
+        "G2532",
+        "G2889",
+        "G1097",
+        "G846"
+      ],
+      "translations": {
+        "en": "He was in the world, and the world was made by him, and the world knew him not.",
+        "bg": "Той беше в света; и светът чрез Него стана; но светът не Го позна.",
+        "ch": "他在世界，世界也是借著他造的，世界却不认识他。",
+        "sp": "En el mundo estaba, y el mundo fué hecho por él; y el mundo no le conoció."
+      }
+    },
+    {
+      "number": 11,
+      "reference": "John 1:11",
+      "text": "He came unto his own, and his own received him not.",
+      "strongs": [
+        "G2064",
+        "G1519",
+        "G2398",
+        "G2532",
+        "G2398",
+        "G3880",
+        "G846"
+      ],
+      "translations": {
+        "en": "He came unto his own, and his own received him not.",
+        "bg": "При Своите Си дойде, но Своите Му не Го приеха.",
+        "ch": "他到自己的地方来，自己的人倒不接待他。",
+        "sp": "Á lo suyo vino, y los suyos no le recibieron."
+      }
+    },
+    {
+      "number": 12,
+      "reference": "John 1:12",
+      "text": "But as many as received him, to them gave he power to become the sons of God, even to them that believe on his name:",
+      "strongs": [
+        "G1161",
+        "G3745",
+        "G2983",
+        "G846",
+        "G846",
+        "G1325",
+        "G1849",
+        "G1096",
+        "G5043",
+        "G2316",
+        "G4100",
+        "G1519",
+        "G846"
+      ],
+      "translations": {
+        "en": "But as many as received him, to them gave he power to become the sons of God, even to them that believe on his name:",
+        "bg": "А на онези, които Го приеха, даде право да станат Божии деца – на тези, които вярват в Неговото Име;",
+        "ch": "凡接待他的，就是信他名的人，他就赐他们权柄，作　神的儿女。",
+        "sp": "Mas á todos los que le recibieron, dióles potestad de ser hechos hijos de Dios, á los que creen en su nombre:"
+      }
+    },
+    {
+      "number": 13,
+      "reference": "John 1:13",
+      "text": "Which were born, not of blood, nor of the will of the flesh, nor of the will of man, but of God.",
+      "strongs": [
+        "G3739",
+        "G1080",
+        "G3756",
+        "G1537",
+        "G129",
+        "G3761",
+        "G1537",
+        "G2307",
+        "G4561",
+        "G3761",
+        "G1537",
+        "G2307",
+        "G435",
+        "G235",
+        "G1537"
+      ],
+      "translations": {
+        "en": "Which were born, not of blood, nor of the will of the flesh, nor of the will of man, but of God.",
+        "bg": "които се родиха не от кръв, нито от плътска воля, нито от мъжка воля, а от Бога.",
+        "ch": "这等人不是从血气生的，不是从情欲生的，也不是从人意生的，乃是从　神生的。",
+        "sp": "Los cuales no son engendrados de sangre, ni de voluntad de carne, ni de voluntad de varón, mas de Dios."
+      }
+    },
+    {
+      "number": 14,
+      "reference": "John 1:14",
+      "text": "And the Word was made flesh, and dwelt among us, (and we beheld his glory, the glory as of the only begotten of the Father,) full of grace and truth.",
+      "strongs": [
+        "G2532",
+        "G3056",
+        "G1096",
+        "G4561",
+        "G2532",
+        "G4637",
+        "G1722",
+        "G2254",
+        "G2532",
+        "G2300",
+        "G846",
+        "G1391",
+        "G1391",
+        "G5613",
+        "G3439",
+        "G3844",
+        "G3962",
+        "G4134",
+        "G5485",
+        "G2532"
+      ],
+      "translations": {
+        "en": "And the Word was made flesh, and dwelt among us, (and we beheld his glory, the glory as of the only begotten of the Father,) full of grace and truth.",
+        "bg": "И Словото стана плът и пребиваваше между нас; и видяхме славата Му, слава като на Единородния от Отца, пълно с благодат и истина.",
+        "ch": "道成了肉身，住在我们中间，充充满满的有恩典有真理。我们也见过他的荣光，正是父独生子的荣光。",
+        "sp": "Y aquel Verbo fué hecho carne, y habitó entre nosotros (y vimos su gloria, gloria como del unigénito del Padre), lleno de gracia y de verdad."
+      }
+    },
+    {
+      "number": 15,
+      "reference": "John 1:15",
+      "text": "John bare witness of him, and cried, saying, This was he of whom I spake, He that cometh after me is preferred before me: for he was before me.",
+      "strongs": [
+        "G2491",
+        "G3140",
+        "G4012",
+        "G846",
+        "G2532",
+        "G2896",
+        "G3004",
+        "G3778",
+        "G2258",
+        "G3739",
+        "G2036",
+        "G2064",
+        "G3694",
+        "G3450",
+        "G1096",
+        "G1715",
+        "G3450",
+        "G3754",
+        "G2258",
+        "G4413"
+      ],
+      "translations": {
+        "en": "John bare witness of him, and cried, saying, This was he of whom I spake, He that cometh after me is preferred before me: for he was before me.",
+        "bg": "Йоан свидетелства за Него и викаше, казвайки: Ето Онзи, за когото казах: Този, който идва след мен, е пред мен, понеже е бил преди мен.",
+        "ch": "约翰为他作见证，喊著说：「这就是我曾说：『那在我以后来的，反成了在我以前的，因他本来在我以前。』」",
+        "sp": "Juan dió testimonio de él, y clamó diciendo: Éste es del que yo decía: El que viene tras mí, es antes de mí: porque es primero que yo."
+      }
+    },
+    {
+      "number": 16,
+      "reference": "John 1:16",
+      "text": "And of his fulness have all we received, and grace for grace.",
+      "strongs": [
+        "G2532",
+        "G1537",
+        "G846",
+        "G4138",
+        "G2983",
+        "G3956",
+        "G2249",
+        "G2983",
+        "G2532",
+        "G5485",
+        "G473"
+      ],
+      "translations": {
+        "en": "And of his fulness have all we received, and grace for grace.",
+        "bg": "И ние всички приехме от Неговата пълнота и благодат върху благодат;",
+        "ch": "从他丰满的恩典里，我们都领受了，而且恩上加恩。",
+        "sp": "Porque de su plenitud tomamos todos, y gracia por gracia."
+      }
+    },
+    {
+      "number": 17,
+      "reference": "John 1:17",
+      "text": "For the law was given by Moses, but grace and truth came by Jesus Christ.",
+      "strongs": [
+        "G3754",
+        "G3551",
+        "G1325",
+        "G1223",
+        "G3475",
+        "G5485",
+        "G2532",
+        "G225",
+        "G1096",
+        "G1223",
+        "G2424"
+      ],
+      "translations": {
+        "en": "For the law was given by Moses, but grace and truth came by Jesus Christ.",
+        "bg": "защото законът беше даден чрез Мойсей, а благодатта и истината дойдоха чрез Иисус Христос.",
+        "ch": "律法本是借著摩西传的；恩典和真理都是由耶稣基督来的。",
+        "sp": "Porque la ley por Moisés fué dada: mas la gracia y la verdad por Jesucristo fué hecha."
+      }
+    },
+    {
+      "number": 18,
+      "reference": "John 1:18",
+      "text": "No man hath seen God at any time; the only begotten Son, which is in the bosom of the Father, he hath declared",
+      "strongs": [
+        "G3762",
+        "G3708",
+        "G2316",
+        "G4455",
+        "G3439",
+        "G5207",
+        "G3588",
+        "G5607",
+        "G1519",
+        "G2859",
+        "G3962",
+        "G1565"
+      ],
+      "translations": {
+        "en": "No man hath seen God at any time; the only begotten Son, which is in the bosom of the Father, he hath declared",
+        "bg": "Никой никога не е видял Бога. Единородният Син, който е в лоното на Отца, Той Го изяви.",
+        "ch": "从来没有人看见　神，只有在父怀里的独生子将他表明出来。",
+        "sp": "Á Dios nadie le vió jamás: el unigénito Hijo, que está en el seno del Padre, él le declaró."
+      }
+    },
+    {
+      "number": 19,
+      "reference": "John 1:19",
+      "text": "And this is the record of John, when the Jews sent priests and Levites from Jerusalem to ask him, Who art thou?",
+      "strongs": [
+        "G2532",
+        "G3778",
+        "G2076",
+        "G3141",
+        "G2491",
+        "G3753",
+        "G2453",
+        "G649",
+        "G2409",
+        "G2532",
+        "G3019",
+        "G1537",
+        "G2414",
+        "G2443",
+        "G2065",
+        "G846",
+        "G5101",
+        "G1488"
+      ],
+      "translations": {
+        "en": "And this is the record of John, when the Jews sent priests and Levites from Jerusalem to ask him, Who art thou?",
+        "bg": "И това е свидетелството на Йоан, когато юдеите изпратиха до него свещеници и левити от Ерусалим, за да го попитат: Ти кой си?",
+        "ch": "约翰所作的见证记在下面：犹太人从耶路撒冷差祭司和利未人到约翰那里，问他说：「你是谁？」",
+        "sp": "Y éste es el testimonio de Juan, cuando los Judíos enviaron de Jerusalem sacerdotes y Levitas, que le preguntasen: ¿Tú, quién eres?"
+      }
+    },
+    {
+      "number": 20,
+      "reference": "John 1:20",
+      "text": "And he confessed, and denied not; but confessed, I am not the Christ.",
+      "strongs": [
+        "G2532",
+        "G3670",
+        "G2532",
+        "G720",
+        "G3756",
+        "G2532",
+        "G3670",
+        "G3754",
+        "G1473",
+        "G1510",
+        "G3756"
+      ],
+      "translations": {
+        "en": "And he confessed, and denied not; but confessed, I am not the Christ.",
+        "bg": "Той изповяда и не отрече, а изповяда: Не аз съм Христос.",
+        "ch": "他就明说，并不隐瞒，明说：「我不是基督。」",
+        "sp": "Y confesó, y no negó; mas declaró: No soy yo el Cristo."
+      }
+    },
+    {
+      "number": 21,
+      "reference": "John 1:21",
+      "text": "And they asked him, What then? Art thou Elias? And he saith, I am not. Art thou that prophet? And he answered, No.",
+      "strongs": [
+        "G2532",
+        "G2065",
+        "G846",
+        "G5101",
+        "G3767",
+        "G1488",
+        "G4771",
+        "G2243",
+        "G2532",
+        "G3004",
+        "G1510",
+        "G3756",
+        "G1488",
+        "G4771",
+        "G4396",
+        "G2532",
+        "G611"
+      ],
+      "translations": {
+        "en": "And they asked him, What then? Art thou Elias? And he saith, I am not. Art thou that prophet? And he answered, No.",
+        "bg": "И го попитаха: Тогава какво си? Илия ли си? Каза: Не съм. Пророкът ли си? И отговори: Не.",
+        "ch": "他们又问他说：「这样，你是谁呢？是以利亚吗？」他说：「我不是。」「是那先知吗？」他回答说：「不是。」",
+        "sp": "Y le preguntaron: ¿Qué pues? ¿Eres tú Elías? Dijo: No soy. ¿Eres tú el profeta? Y respondió: No."
+      }
+    },
+    {
+      "number": 22,
+      "reference": "John 1:22",
+      "text": "Then said they unto him, Who art thou? that we may give an answer to them that sent us. What sayest thou of thyself?",
+      "strongs": [
+        "G3767",
+        "G2036",
+        "G846",
+        "G5101",
+        "G1488",
+        "G2443",
+        "G1325",
+        "G612",
+        "G3992",
+        "G2248",
+        "G5101",
+        "G3004",
+        "G4012"
+      ],
+      "translations": {
+        "en": "Then said they unto him, Who art thou? that we may give an answer to them that sent us. What sayest thou of thyself?",
+        "bg": "На това му казаха: Кой си, за да дадем отговор на онези, които са ни пратили; какво казваш за себе си?",
+        "ch": "于是他们说：「你到底是谁，叫我们好回覆差我们来的人。你自己说，你是谁？」",
+        "sp": "Dijéronle: ¿Pues quién eres? para que demos respuesta á los que nos enviaron. ¿Qué dices de ti mismo?"
+      }
+    },
+    {
+      "number": 23,
+      "reference": "John 1:23",
+      "text": "He said, I am the voice of one crying in the wilderness, Make straight the way of the Lord, as said the prophet Esaias.",
+      "strongs": [
+        "G5346",
+        "G1473",
+        "G5456",
+        "G994",
+        "G1722",
+        "G2048",
+        "G2116",
+        "G3598",
+        "G2962",
+        "G2531",
+        "G2036",
+        "G4396"
+      ],
+      "translations": {
+        "en": "He said, I am the voice of one crying in the wilderness, Make straight the way of the Lord, as said the prophet Esaias.",
+        "bg": "Той каза: Аз съм ?глас на един, който вика в пустинята: Прав правете пътя за Господа“, както каза пророк Исая.",
+        "ch": "他说：「我就是那在旷野有人声喊著说：『修直主的道路』，正如先知以赛亚所说的。」",
+        "sp": "Dijo: Yo soy la voz del que clama en el desierto: Enderezad el camino del Señor, como dijo Isaías profeta."
+      }
+    },
+    {
+      "number": 24,
+      "reference": "John 1:24",
+      "text": "And they which were sent were of the Pharisees.",
+      "strongs": [
+        "G2532",
+        "G3588",
+        "G649",
+        "G2258",
+        "G1537"
+      ],
+      "translations": {
+        "en": "And they which were sent were of the Pharisees.",
+        "bg": "А изпратените бяха от фарисеите.",
+        "ch": "那些人是法利赛人差来的（或作：那差来的是法利赛人）；",
+        "sp": "Y los que habían sido enviados eran de los Fariseos."
+      }
+    },
+    {
+      "number": 25,
+      "reference": "John 1:25",
+      "text": "And they asked him, and said unto him, Why baptizest thou then, if thou be not that Christ, nor Elias, neither that prophet?",
+      "strongs": [
+        "G2532",
+        "G2065",
+        "G846",
+        "G2532",
+        "G2036",
+        "G846",
+        "G5101",
+        "G907",
+        "G3767",
+        "G1487",
+        "G4771",
+        "G1488",
+        "G3756",
+        "G5547",
+        "G3777",
+        "G2243",
+        "G3777"
+      ],
+      "translations": {
+        "en": "And they asked him, and said unto him, Why baptizest thou then, if thou be not that Christ, nor Elias, neither that prophet?",
+        "bg": "И го попитаха, като му казаха: А защо кръщаваш, ако не си Христос, нито Илия, нито Пророкът?",
+        "ch": "他们就问他说：「你既不是基督，不是以利亚，也不是那先知，为什么施洗呢？」",
+        "sp": "Y preguntáronle, y dijéronle: ¿Por qué pues bautizas, si tú no eres el Cristo, ni Elías, ni el profeta?"
+      }
+    },
+    {
+      "number": 26,
+      "reference": "John 1:26",
+      "text": "John answered them, saying, I baptize with water: but there standeth one among you, whom ye know not;",
+      "strongs": [
+        "G2491",
+        "G611",
+        "G846",
+        "G3004",
+        "G1473",
+        "G907",
+        "G1722",
+        "G5204",
+        "G1161",
+        "G2476",
+        "G3319",
+        "G5216",
+        "G3739",
+        "G5210",
+        "G1492"
+      ],
+      "translations": {
+        "en": "John answered them, saying, I baptize with water: but there standeth one among you, whom ye know not;",
+        "bg": "В отговор Йоан им каза: Аз кръщавам с вода, но сред вас стои Един, когото вие не познавате.",
+        "ch": "约翰回答说：「我是用水施洗，但有一位站在你们中间，是你们不认识的，",
+        "sp": "Y Juan les respondió, diciendo: Yo bautizo con agua; mas en medio de vosotros ha estado á quien vosotros no conocéis."
+      }
+    },
+    {
+      "number": 27,
+      "reference": "John 1:27",
+      "text": "He it is, who coming after me is preferred before me, whose shoe's latchet I am not worthy to unloose.",
+      "strongs": [
+        "G846",
+        "G2076",
+        "G3739",
+        "G2064",
+        "G3694",
+        "G3450",
+        "G1096",
+        "G1715",
+        "G3450",
+        "G3739",
+        "G846",
+        "G5266",
+        "G2438",
+        "G1473",
+        "G1510",
+        "G3756",
+        "G514",
+        "G2443"
+      ],
+      "translations": {
+        "en": "He it is, who coming after me is preferred before me, whose shoe's latchet I am not worthy to unloose.",
+        "bg": "Той е, който идва след мен, на когото аз не съм достоен да развържа ремъка на сандалите Му.",
+        "ch": "就是那在我以后来的，我给他解鞋带也不配。」",
+        "sp": "Éste es el que ha de venir tras mí, el cual es antes de mí: del cual yo no soy digno de desatar la correa del zapato."
+      }
+    },
+    {
+      "number": 28,
+      "reference": "John 1:28",
+      "text": "These things were done in Bethabara beyond Jordan, where John was baptizing.",
+      "strongs": [
+        "G5023",
+        "G1096",
+        "G1722",
+        "G962",
+        "G4008",
+        "G2446",
+        "G3699",
+        "G2491",
+        "G2258"
+      ],
+      "translations": {
+        "en": "These things were done in Bethabara beyond Jordan, where John was baptizing.",
+        "bg": "Това стана във Витания, от другата страна на Йордан, където Йоан кръщаваше.",
+        "ch": "这是在约旦河外伯大尼（有古卷：伯大巴喇），约翰施洗的地方作的见证。",
+        "sp": "Estas cosas acontecieron en Betábara, de la otra parte del Jordán, donde Juan bautizaba."
+      }
+    },
+    {
+      "number": 29,
+      "reference": "John 1:29",
+      "text": "The next day John seeth Jesus coming unto him, and saith, Behold the Lamb of God, which taketh away the sin of the world.",
+      "strongs": [
+        "G1887",
+        "G2491",
+        "G991",
+        "G2424",
+        "G2064",
+        "G4314",
+        "G846",
+        "G2532",
+        "G3004",
+        "G2396",
+        "G286",
+        "G2316",
+        "G3588",
+        "G142",
+        "G266"
+      ],
+      "translations": {
+        "en": "The next day John seeth Jesus coming unto him, and saith, Behold the Lamb of God, which taketh away the sin of the world.",
+        "bg": "На следващия ден Йоан видя Иисус, че идва към него, и каза: Ето Божият Агнец, който взема греха на света!",
+        "ch": "次日，约翰看见耶稣来到他那里，就说：「看哪，　神的羔羊，除去（或译：背负）世人罪孽的！",
+        "sp": "El siguiente día ve Juan á Jesús que venía á él, y dice: He aquí el Cordero de Dios, que quita el pecado del mundo."
+      }
+    },
+    {
+      "number": 30,
+      "reference": "John 1:30",
+      "text": "This is he of whom I said, After me cometh a man which is preferred before me: for he was before me.",
+      "strongs": [
+        "G3778",
+        "G2076",
+        "G4012",
+        "G3739",
+        "G1473",
+        "G2036",
+        "G3694",
+        "G3450",
+        "G2064",
+        "G435",
+        "G3739",
+        "G1096",
+        "G1715",
+        "G3450",
+        "G3754",
+        "G2258",
+        "G4413"
+      ],
+      "translations": {
+        "en": "This is he of whom I said, After me cometh a man which is preferred before me: for he was before me.",
+        "bg": "Този е, за когото казах: След мен идва Човек, който е пред мен, защото е бил преди мен.",
+        "ch": "这就是我曾说：『有一位在我以后来、反成了在我以前的，因他本来在我以前。』",
+        "sp": "Éste es del que dije: Tras mí viene un varón, el cual es antes de mí: porque era primero que yo."
+      }
+    },
+    {
+      "number": 31,
+      "reference": "John 1:31",
+      "text": "And I knew him not: but that he should be made manifest to Israel, therefore am I come baptizing with water.",
+      "strongs": [
+        "G2504",
+        "G1492",
+        "G846",
+        "G3756",
+        "G235",
+        "G2443",
+        "G5319",
+        "G2474",
+        "G1223",
+        "G5124",
+        "G2064",
+        "G1473",
+        "G2064",
+        "G907",
+        "G1722"
+      ],
+      "translations": {
+        "en": "And I knew him not: but that he should be made manifest to Israel, therefore am I come baptizing with water.",
+        "bg": "И аз не Го познавах; но затова дойдох и кръщавам с вода, за да бъде Той изявен на Израил.",
+        "ch": "我先前不认识他，如今我来用水施洗，为要叫他显明给以色列人。」",
+        "sp": "Y yo no le conocía; más para que fuese manifestado á Israel, por eso vine yo bautizando con agua."
+      }
+    },
+    {
+      "number": 32,
+      "reference": "John 1:32",
+      "text": "And John bare record, saying, I saw the Spirit descending from heaven like a dove, and it abode upon him.",
+      "strongs": [
+        "G2532",
+        "G2491",
+        "G3140",
+        "G3004",
+        "G3754",
+        "G2300",
+        "G4151",
+        "G2597",
+        "G1537",
+        "G3772",
+        "G5616",
+        "G4058",
+        "G2532",
+        "G3306",
+        "G1909"
+      ],
+      "translations": {
+        "en": "And John bare record, saying, I saw the Spirit descending from heaven like a dove, and it abode upon him.",
+        "bg": "И Йоан свидетелства, казвайки: Видях Духа да слиза като гълъб от небето и да остава върху Него.",
+        "ch": "约翰又作见证说：「我曾看见圣灵，彷彿鸽子从天降下，住在他的身上。",
+        "sp": "Y Juan dió testimonio, diciendo: Vi al Espíritu que descendía del cielo como paloma, y reposó sobre él."
+      }
+    },
+    {
+      "number": 33,
+      "reference": "John 1:33",
+      "text": "And I knew him not: but he that sent me to baptize with water, the same said unto me, Upon whom thou shalt see the Spirit descending, and remaining on him, the same is he which baptizeth with the Holy Ghost.",
+      "strongs": [
+        "G2504",
+        "G1492",
+        "G846",
+        "G3756",
+        "G235",
+        "G3992",
+        "G3165",
+        "G907",
+        "G1722",
+        "G5204",
+        "G1565",
+        "G2036",
+        "G3427",
+        "G1909",
+        "G3739",
+        "G302",
+        "G1492",
+        "G4151",
+        "G2597",
+        "G2532",
+        "G3306",
+        "G1909",
+        "G846",
+        "G3778",
+        "G2076",
+        "G907",
+        "G1722",
+        "G40"
+      ],
+      "translations": {
+        "en": "And I knew him not: but he that sent me to baptize with water, the same said unto me, Upon whom thou shalt see the Spirit descending, and remaining on him, the same is he which baptizeth with the Holy Ghost.",
+        "bg": "И аз не Го познах; но Онзи, който ме прати да кръщавам с вода, Той ми каза: Онзи, над когото видиш да слиза Духът и да остава върху Него, Той е, който кръщава със Светия Дух.",
+        "ch": "我先前不认识他，只是那差我来用水施洗的、对我说：『你看见圣灵降下来，住在谁的身上，谁就是用圣灵施洗的。』",
+        "sp": "Y yo no le conocía; mas el que me envió á bautizar con agua, aquél me dijo: Sobre quien vieres descender el Espíritu, y que reposa sobre él, éste es el que bautiza con Espíritu Santo."
+      }
+    },
+    {
+      "number": 34,
+      "reference": "John 1:34",
+      "text": "And I saw, and bare record that this is the Son of God.",
+      "strongs": [
+        "G2504",
+        "G3708",
+        "G2532",
+        "G3140",
+        "G3754",
+        "G3778",
+        "G2076",
+        "G5207"
+      ],
+      "translations": {
+        "en": "And I saw, and bare record that this is the Son of God.",
+        "bg": "И видях и свидетелствам, че Този е Божият Син.",
+        "ch": "我看见了，就证明这是　神的儿子。」",
+        "sp": "Y yo le vi, y he dado testimonio que éste es el Hijo de Dios."
+      }
+    },
+    {
+      "number": 35,
+      "reference": "John 1:35",
+      "text": "Again the next day after John stood, and two of his disciples;",
+      "strongs": [
+        "G3825",
+        "G1887",
+        "G2491",
+        "G2476",
+        "G2532",
+        "G1417",
+        "G1537",
+        "G846"
+      ],
+      "translations": {
+        "en": "Again the next day after John stood, and two of his disciples;",
+        "bg": "На следващия ден Йоан пак стоеше с двама от учениците си.",
+        "ch": "再次日，约翰同两个门徒站在那里。",
+        "sp": "El siguiente día otra vez estaba Juan, y dos de sus discípulos."
+      }
+    },
+    {
+      "number": 36,
+      "reference": "John 1:36",
+      "text": "And looking upon Jesus as he walked, he saith, Behold the Lamb of God!",
+      "strongs": [
+        "G2532",
+        "G1689",
+        "G2424",
+        "G4043",
+        "G3004",
+        "G2396",
+        "G286"
+      ],
+      "translations": {
+        "en": "And looking upon Jesus as he walked, he saith, Behold the Lamb of God!",
+        "bg": "И като съгледа Иисус, когато минаваше, каза: Ето Божият Агнец!",
+        "ch": "他见耶稣行走，就说：「看哪，这是　神的羔羊！」",
+        "sp": "Y mirando á Jesús que andaba por allí, dijo: He aquí el Cordero de Dios."
+      }
+    },
+    {
+      "number": 37,
+      "reference": "John 1:37",
+      "text": "And the two disciples heard him speak, and they followed Jesus.",
+      "strongs": [
+        "G2532",
+        "G1417",
+        "G3101",
+        "G191",
+        "G846",
+        "G2980",
+        "G2532",
+        "G190"
+      ],
+      "translations": {
+        "en": "And the two disciples heard him speak, and they followed Jesus.",
+        "bg": "И двамата ученици го чуха да говори така и последваха Иисус.",
+        "ch": "两个门徒听见他的话，就跟从了耶稣。",
+        "sp": "Y oyéronle los dos discípulos hablar, y siguieron á Jesús."
+      }
+    },
+    {
+      "number": 38,
+      "reference": "John 1:38",
+      "text": "Then Jesus turned, and saw them following, and saith unto them, What seek ye? They said unto him, Rabbi, (which is to say, being interpreted, Master,) where dwellest thou?",
+      "strongs": [
+        "G1161",
+        "G2424",
+        "G4762",
+        "G2532",
+        "G2300",
+        "G846",
+        "G190",
+        "G3004",
+        "G846",
+        "G5101",
+        "G2212",
+        "G1161",
+        "G2036",
+        "G846",
+        "G4461",
+        "G3739",
+        "G3004",
+        "G2059",
+        "G1320",
+        "G4226"
+      ],
+      "translations": {
+        "en": "Then Jesus turned, and saw them following, and saith unto them, What seek ye? They said unto him, Rabbi, (which is to say, being interpreted, Master,) where dwellest thou?",
+        "bg": "И Иисус, като се обърна и видя, че Го следват, им каза: Какво търсите? А те Му казаха: Равви – което се превежда: Учителю – къде живееш?",
+        "ch": "耶稣转过身来，看见他们跟著，就问他们说：「你们要什么？」他们说：「拉比，在哪里住？」（拉比翻出来就是夫子。）",
+        "sp": "Y volviéndose Jesús, y viéndolos seguir le, díceles: ¿Qué buscáis? Y ellos le dijeron: Rabbí (que declarado quiere decir Maestro) ¿dónde moras?"
+      }
+    },
+    {
+      "number": 39,
+      "reference": "John 1:39",
+      "text": "He saith unto them, Come and see. They came and saw where he dwelt, and abode with him that day: for it was about the tenth hour.",
+      "strongs": [
+        "G3004",
+        "G846",
+        "G2064",
+        "G2532",
+        "G1492",
+        "G2064",
+        "G2532",
+        "G1492",
+        "G4226",
+        "G3306",
+        "G2532",
+        "G3306",
+        "G3844",
+        "G846",
+        "G1565",
+        "G2250",
+        "G1161",
+        "G2258",
+        "G5613",
+        "G1182"
+      ],
+      "translations": {
+        "en": "He saith unto them, Come and see. They came and saw where he dwelt, and abode with him that day: for it was about the tenth hour.",
+        "bg": "Каза им: Елате и ще видите. И така, те дойдоха и видяха къде живее, и останаха при Него този ден. Беше около десетият час.",
+        "ch": "耶稣说：「你们来看。」他们就去看他在那里住，这一天便与他同住；那时约有申正了。",
+        "sp": "Díceles: Venid y ved. Vinieron, y vieron donde moraba, y quedáronse con él aquel día: porque era como la hora de las diez."
+      }
+    },
+    {
+      "number": 40,
+      "reference": "John 1:40",
+      "text": "One of the two which heard John speak, and followed him, was Andrew, Simon Peter's brother.",
+      "strongs": [
+        "G1520",
+        "G1537",
+        "G1417",
+        "G3588",
+        "G191",
+        "G3844",
+        "G2491",
+        "G2532",
+        "G190",
+        "G846",
+        "G2258",
+        "G406",
+        "G4613",
+        "G4074"
+      ],
+      "translations": {
+        "en": "One of the two which heard John speak, and followed him, was Andrew, Simon Peter's brother.",
+        "bg": "Единият от двамата, които чуха от Йоан за Него и Го последваха, беше Андрей, брат на Симон Петър.",
+        "ch": "听见约翰的话跟从耶稣的那两个人，一个是西门彼得的兄弟安得烈。",
+        "sp": "Era Andrés, hermano de Simón Pedro, uno de los dos que habían oído de Juan, y le habían seguido."
+      }
+    },
+    {
+      "number": 41,
+      "reference": "John 1:41",
+      "text": "He first findeth his own brother Simon, and saith unto him, We have found the Messias, which is, being interpreted, the Christ.",
+      "strongs": [
+        "G3778",
+        "G4413",
+        "G2147",
+        "G2398",
+        "G80",
+        "G4613",
+        "G2532",
+        "G3004",
+        "G846",
+        "G2147",
+        "G3323",
+        "G3739",
+        "G2076",
+        "G3177"
+      ],
+      "translations": {
+        "en": "He first findeth his own brother Simon, and saith unto him, We have found the Messias, which is, being interpreted, the Christ.",
+        "bg": "Той първо намери своя брат Симон и му каза: Намерихме Месия, което се превежда: Христос.",
+        "ch": "他先找著自己的哥哥西门，对他说：「我们遇见弥赛亚了。」（弥赛亚繙出来就是基督。）",
+        "sp": "Éste halló primero á su hermano Simón, y díjole: Hemos hallado al Mesías (que declarado es, el Cristo)."
+      }
+    },
+    {
+      "number": 42,
+      "reference": "John 1:42",
+      "text": "And he brought him to Jesus. And when Jesus beheld him, he said, Thou art Simon the son of Jona: thou shalt be called Cephas, which is by interpretation, A stone.",
+      "strongs": [
+        "G2532",
+        "G71",
+        "G846",
+        "G4314",
+        "G2424",
+        "G1161",
+        "G2424",
+        "G1689",
+        "G846",
+        "G2036",
+        "G4771",
+        "G1488",
+        "G4613",
+        "G5207",
+        "G2495",
+        "G4771",
+        "G2564",
+        "G2786",
+        "G3739",
+        "G2059"
+      ],
+      "translations": {
+        "en": "And he brought him to Jesus. And when Jesus beheld him, he said, Thou art Simon the son of Jona: thou shalt be called Cephas, which is by interpretation, A stone.",
+        "bg": "И го заведе при Иисус. А Иисус се вгледа в него и каза: Ти си Симон, син на Йона; ти ще се наричаш Кифа, което се превежда: камък.",
+        "ch": "于是领他去见耶稣。耶稣看著他，说：「你是约翰的儿子西门（约翰在马太16：17称约拿），你要称为矶法。」（矶法翻出来就是彼得。）",
+        "sp": "Y le trajo á Jesús. Y mirándole Jesús, dijo: Tú eres Simón, hijo de Jonás: tú serás llamado Cephas (que quiere decir, Piedra)."
+      }
+    },
+    {
+      "number": 43,
+      "reference": "John 1:43",
+      "text": "The day following Jesus would go forth into Galilee, and findeth Philip, and saith unto him, Follow me.",
+      "strongs": [
+        "G1887",
+        "G2424",
+        "G2309",
+        "G1831",
+        "G1519",
+        "G1056",
+        "G2532",
+        "G2147",
+        "G5376",
+        "G2532",
+        "G3004",
+        "G846",
+        "G190"
+      ],
+      "translations": {
+        "en": "The day following Jesus would go forth into Galilee, and findeth Philip, and saith unto him, Follow me.",
+        "bg": "На другия ден Иисус реши да отиде в Галилея; и намери Филип и му каза: Следвай Ме.",
+        "ch": "又次日，耶稣想要往加利利去，遇见腓力，就对他说：「来跟从我吧。」",
+        "sp": "El siguiente día quiso Jesús ir á Galilea, y halla á Felipe, al cual dijo: Sígueme."
+      }
+    },
+    {
+      "number": 44,
+      "reference": "John 1:44",
+      "text": "Now Philip was of Bethsaida, the city of Andrew and Peter.",
+      "strongs": [
+        "G1161",
+        "G5376",
+        "G2258",
+        "G575",
+        "G966",
+        "G4172",
+        "G1537",
+        "G406",
+        "G2532"
+      ],
+      "translations": {
+        "en": "Now Philip was of Bethsaida, the city of Andrew and Peter.",
+        "bg": "А Филип беше от Витсаида, от града на Андрей и Петър.",
+        "ch": "这腓力是伯赛大人，和安得烈、彼得同城。",
+        "sp": "Y era Felipe de Bethsaida, la ciudad de Andrés y de Pedro."
+      }
+    },
+    {
+      "number": 45,
+      "reference": "John 1:45",
+      "text": "Philip findeth Nathanael, and saith unto him, We have found him, of whom Moses in the law, and the prophets, did write, Jesus of Nazareth, the son of Joseph.",
+      "strongs": [
+        "G5376",
+        "G2147",
+        "G3482",
+        "G2532",
+        "G3004",
+        "G846",
+        "G2147",
+        "G3739",
+        "G3475",
+        "G1722",
+        "G3551",
+        "G2532",
+        "G4396",
+        "G1125",
+        "G2424",
+        "G575",
+        "G3478",
+        "G5207"
+      ],
+      "translations": {
+        "en": "Philip findeth Nathanael, and saith unto him, We have found him, of whom Moses in the law, and the prophets, did write, Jesus of Nazareth, the son of Joseph.",
+        "bg": "Филип намери Натанаил и му каза: Намерихме Онзи, за когото писа Мойсей в закона, и пророците – Иисус, сина на Йосиф, който е от Назарет.",
+        "ch": "腓力找著拿但业，对他说「摩西在律法上所写的和众先知所记的那一位，我们遇见了，就是约瑟的儿子拿撒勒人耶稣。」",
+        "sp": "Felipe halló á Nathanael, y dícele: Hemos hallado á aquel de quien escribió Moisés en la ley, y los profetas: á Jesús, el hijo de José, de Nazaret."
+      }
+    },
+    {
+      "number": 46,
+      "reference": "John 1:46",
+      "text": "And Nathanael said unto him, Can there any good thing come out of Nazareth? Philip saith unto him, Come and see.",
+      "strongs": [
+        "G2532",
+        "G3482",
+        "G2036",
+        "G846",
+        "G1410",
+        "G5100",
+        "G18",
+        "G1511",
+        "G1537",
+        "G3478",
+        "G5376",
+        "G3004",
+        "G846",
+        "G2064",
+        "G2532"
+      ],
+      "translations": {
+        "en": "And Nathanael said unto him, Can there any good thing come out of Nazareth? Philip saith unto him, Come and see.",
+        "bg": "А Натанаил му каза: Може ли от Назарет да излезе нещо добро? Филип му каза: Ела и виж.",
+        "ch": "拿但业对他说：「拿撒勒还能出什么好的吗？」腓力说：「你来看！」",
+        "sp": "Y díjole Nathanael: ¿De Nazaret puede haber algo de bueno? Dícele Felipe: Ven y ve."
+      }
+    },
+    {
+      "number": 47,
+      "reference": "John 1:47",
+      "text": "Jesus saw Nathanael coming to him, and saith of him, Behold an Israelite indeed, in whom is no guile!",
+      "strongs": [
+        "G2424",
+        "G1492",
+        "G3482",
+        "G2064",
+        "G4314",
+        "G846",
+        "G2532",
+        "G3004",
+        "G4012",
+        "G846",
+        "G2396",
+        "G2475",
+        "G230",
+        "G1722",
+        "G3739",
+        "G2076",
+        "G3756"
+      ],
+      "translations": {
+        "en": "Jesus saw Nathanael coming to him, and saith of him, Behold an Israelite indeed, in whom is no guile!",
+        "bg": "Иисус видя Натанаил да идва към Него и каза за него: Ето истински израилтянин, у когото няма лукавство.",
+        "ch": "耶稣看见拿但业来，就指著他说：「看哪，这是个真以色列人，他心里是没有诡诈的。」",
+        "sp": "Jesús vió venir á sí á Nathanael, y dijo de él: He aquí un verdadero Israelita, en el cual no hay engaño."
+      }
+    },
+    {
+      "number": 48,
+      "reference": "John 1:48",
+      "text": "Nathanael saith unto him, Whence knowest thou me? Jesus answered and said unto him, Before that Philip called thee, when thou wast under the fig tree, I saw thee.",
+      "strongs": [
+        "G3482",
+        "G3004",
+        "G846",
+        "G4159",
+        "G1097",
+        "G3165",
+        "G2424",
+        "G611",
+        "G2532",
+        "G2036",
+        "G846",
+        "G4253",
+        "G5376",
+        "G5455",
+        "G4571",
+        "G5607",
+        "G5259",
+        "G4808",
+        "G1492"
+      ],
+      "translations": {
+        "en": "Nathanael saith unto him, Whence knowest thou me? Jesus answered and said unto him, Before that Philip called thee, when thou wast under the fig tree, I saw thee.",
+        "bg": "Натанаил Му каза: Откъде ме познаваш? Иисус в отговор му каза: Преди да те повика Филип, те видях, като беше под смокинята.",
+        "ch": "拿但业对耶稣说：「你从哪知道我呢？」耶稣回答说：「腓力还没有招呼你，你在无花果树底下，我就看见你了。」",
+        "sp": "Dícele Nathanael: ¿De dónde me conoces? Respondió Jesús, y díjole: Antes que Felipe te llamara, cuando estabas debajo de la higuera te vi."
+      }
+    },
+    {
+      "number": 49,
+      "reference": "John 1:49",
+      "text": "Nathanael answered and saith unto him, Rabbi, thou art the Son of God; thou art the King of Israel.",
+      "strongs": [
+        "G3482",
+        "G611",
+        "G2532",
+        "G3004",
+        "G846",
+        "G4461",
+        "G4771",
+        "G1488",
+        "G5207",
+        "G2316",
+        "G4771",
+        "G1488",
+        "G935"
+      ],
+      "translations": {
+        "en": "Nathanael answered and saith unto him, Rabbi, thou art the Son of God; thou art the King of Israel.",
+        "bg": "Натанаил Му отговори: Равви, Ти си Божият Син, Ти си израилевият Цар!",
+        "ch": "拿但业说：「拉比，你是　神的儿子，你是以色列的王！」",
+        "sp": "Respondió Nathanael, y díjole: Rabbí, tú eres el Hijo de Dios; tú eres el Rey de Israel."
+      }
+    },
+    {
+      "number": 50,
+      "reference": "John 1:50",
+      "text": "Jesus answered and said unto him, Because I said unto thee, I saw thee under the fig tree, believest thou? thou shalt see greater things than these.",
+      "strongs": [
+        "G2424",
+        "G611",
+        "G2532",
+        "G2036",
+        "G846",
+        "G3754",
+        "G2036",
+        "G4671",
+        "G1492",
+        "G4571",
+        "G5270",
+        "G4808",
+        "G4100",
+        "G3700",
+        "G3187"
+      ],
+      "translations": {
+        "en": "Jesus answered and said unto him, Because I said unto thee, I saw thee under the fig tree, believest thou? thou shalt see greater things than these.",
+        "bg": "Иисус в отговор му каза: Понеже ти казах: Видях те под смокинята, затова ли вярваш? По-големи неща от това ще видиш.",
+        "ch": "耶稣对他说：「因为我说『在无花果树底下看见你』，你就信吗？你将要看见比这更大的事」；",
+        "sp": "Respondió Jesús y díjole: ¿Porque te dije, te vi debajo de la higuera, crees? cosas mayores que éstas verás."
+      }
+    },
+    {
+      "number": 51,
+      "reference": "John 1:51",
+      "text": "And he saith unto him, Verily, verily, I say unto you, Hereafter ye shall see heaven open, and the angels of God ascending and descending upon the Son of man.",
+      "strongs": [
+        "G2532",
+        "G3004",
+        "G846",
+        "G281",
+        "G281",
+        "G3004",
+        "G5213",
+        "G737",
+        "G575",
+        "G3700",
+        "G3772",
+        "G455",
+        "G2532",
+        "G32",
+        "G2316",
+        "G305",
+        "G2532",
+        "G2597",
+        "G1909",
+        "G5207"
+      ],
+      "translations": {
+        "en": "And he saith unto him, Verily, verily, I say unto you, Hereafter ye shall see heaven open, and the angels of God ascending and descending upon the Son of man.",
+        "bg": "И му каза: Истина, истина ви казвам: (отсега) ще виждате небето отворено и Божиите ангели да възлизат и слизат над Човешкия Син.",
+        "ch": "又说：「我实实在在地告诉你们，你们将要看见天开了，　神的使者上去下来在人子身上。」",
+        "sp": "Y dícele: De cierto, de cierto os digo: De aquí adelante veréis el cielo abierto, y los ángeles de Dios que suben y descienden sobre el Hijo del hombre."
+      }
+    }
+  ]
+}

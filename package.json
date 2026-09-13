@@ -1,0 +1,74 @@
+{
+  "name": "from-darkness-to-light",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A private Bible-centered Electron and React prototype for From Darkness to Light.",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "npm run build:data && node scripts/dev.cjs",
+    "dev:renderer": "vite --host 127.0.0.1",
+    "dev:electron": "electron .",
+    "build": "npm run build:data && vite build",
+    "build:data": "node scripts/build-data-index.cjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:debug": "npm run android:sync && cd android && gradlew.bat --no-daemon assembleDebug",
+    "android:release": "npm run android:sync && cd android && gradlew.bat --no-daemon assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.2",
+    "electron-updater": "^6.8.9",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "44.3.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^7.0.2",
+    "vite": "6.4.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "build": {
+    "appId": "com.mcographics.fromdarknesstolight",
+    "productName": "From Darkness to Light",
+    "artifactName": "From-Darkness-to-Light-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "mcographics",
+      "repo": "FromIslamtoChrist",
+      "releaseType": "release"
+    }
+  }
+}
