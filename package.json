@@ -12,7 +12,7 @@
     "build": "npm run build:data && vite build",
     "build:data": "node scripts/build-data-index.cjs",
     "preview": "vite preview --host 127.0.0.1",
-    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
     "android:sync": "npm run build && npx cap sync android",
     "android:debug": "npm run android:sync && cd android && gradlew.bat --no-daemon assembleDebug",
     "android:release": "npm run android:sync && cd android && gradlew.bat --no-daemon assembleRelease"
