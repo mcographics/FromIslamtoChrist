@@ -32,6 +32,6 @@ Before a public content release, complete the license manifest and attribution r
 2. Confirm the Android signing/distribution decision before replacing the debug APK with a production-signed artifact.
 3. Update the version in `package.json` and the Android `versionName`/`versionCode`.
 4. Run `npm run build`, `npm run dist:win`, and `npm run android:debug` locally.
-5. Create and push a tag such as `v0.1.1`.
+5. Create and push a tag such as `v0.1.2`.
 6. GitHub Actions builds the Windows installer and Android test APK. For a tag, it creates the GitHub release consumed by both update paths.
 7. Verify the release assets and checksums publicly before calling the release available.

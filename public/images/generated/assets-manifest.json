@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "hero-darkness-to-light-desktop",
+      "file": "images/generated/heroes/hero-darkness-to-light-desktop.webp",
+      "route": "home",
+      "component": "Home.hero-art",
+      "purpose": "Desktop home hero background showing a path from darkness toward sunrise and Christ.",
+      "aspectRatio": "16:9",
+      "promptSummary": "Realistic editorial pre-dawn hillside, calm dark negative space on the left, illuminated path and restrained distant cross toward the right sunrise, no text.",
+      "alt": "",
+      "createdDuringMilestone": "hero-v0.1.2-visual-pass"
+    },
+    {
+      "id": "hero-darkness-to-light-mobile",
+      "file": "images/generated/heroes/hero-darkness-to-light-mobile.webp",
+      "route": "home",
+      "component": "Home.hero-art",
+      "purpose": "Phone home hero background composed for a narrow portrait viewport.",
+      "aspectRatio": "9:16",
+      "promptSummary": "Dedicated portrait companion artwork with a quiet vertical hillside path, dark upper-left atmosphere, warm upper-right sunrise, and restrained distant cross, no text.",
+      "alt": "",
+      "createdDuringMilestone": "hero-v0.1.2-visual-pass"
+    }
+  ]
+}

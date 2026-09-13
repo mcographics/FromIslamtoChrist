@@ -372,7 +372,7 @@ function Home({ onNavigate, onOpenArticle, bookmarks, toggleBookmark, completedL
           <p className="hero-verse">“I am the way, the truth, and the life.”<br /><span>— John 14:6</span></p>
           <button className="primary-button hero-button" type="button" onClick={() => onNavigate('journey')}>Begin your journey <Icon name="arrow" size={18} /></button>
         </div>
-        <div className="hero-landscape" aria-hidden="true"><div className="sun-disc" /><div className="mountain mountain-back" /><div className="mountain mountain-front" /><div className="light-path" /></div>
+        <div className="hero-art" aria-hidden="true"><picture><source media="(max-width: 570px)" srcSet="./images/generated/heroes/hero-darkness-to-light-mobile.webp" /><img src="./images/generated/heroes/hero-darkness-to-light-desktop.webp" alt="" width="1600" height="900" loading="eager" /></picture></div>
         <div className="hero-tag"><Icon name="lock" size={14} /> Local-first & private</div>
       </section>
 
