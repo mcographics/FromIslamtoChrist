@@ -1,6 +1,8 @@
-# From Darkness to Light
+# From Islam to Christ
 
-Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/concept.png`.
+Electron + React + Vite prototype for From Islam to Christ, based on `Documentation/plan.md` and `Concept/concept.png`.
+
+The public product name is From Islam to Christ. Existing technical identifiers such as the Android application ID and generated database filename still use `fromdarknesstolight` for compatibility with the current installed app and release pipeline.
 
 ## Current prototype slice
 
@@ -20,6 +22,7 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 - Bible study tools for local highlights, private notes, copy, font sizing, and Paper/Sepia/Low-light reading tones
 - Learn screen search and topic filtering with local empty states
 - A versioned SQLite content database generated from `Data`, cataloguing all 1,566 local assets and carrying the structured Bible corpus
+- A Source Library screen that searches and displays every indexed `Data` asset with its path, type, size, group, and review status
 - Offline Bible content loaded chapter-by-chapter from the SQLite database, with a checked-in John 1 JSON fallback for development recovery
 - Electron window configured with context isolation, no Node integration, and a sandboxed renderer
 
@@ -52,7 +55,7 @@ For the Android phone build, use a Java 21 toolchain and run:
 npm run android:debug
 ```
 
-The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Android update checks open the matching GitHub release APK for user-approved installation; Android does not permit a third-party APK to silently replace itself. Windows packaged builds check GitHub Releases and install downloaded updates on restart. The v0.2.0 privacy lock is a local access gate, not encryption or a guarantee against device-level access. The v0.2.1 patch tightens the shared mobile layout so the phone viewport stays constrained without unintended horizontal panning.
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Android update checks query GitHub, download the release APK into the app's private update storage, verify its SHA-256 when GitHub provides a digest, and launch Android's package installer only after the user clicks `Install update`; the phone browser is not used. Android still requires the operating system's installation confirmation and may require the user to allow this app to install packages. Windows packaged builds check GitHub Releases and download updates automatically, while the user controls the final `Install update` action. The v0.2.0 privacy lock is a local access gate, not encryption or a guarantee against device-level access. The v0.2.1 patch tightens the shared mobile layout so the phone viewport stays constrained without unintended horizontal panning.
 
 The public release workflow is tag-driven. Create a `v*` tag after reviewing content and licensing, and GitHub Actions builds the Windows installer and Android test APK. The raw `Data` directory remains local research input and is intentionally excluded from the repository and application bundle until each asset has a completed redistribution review.
 
