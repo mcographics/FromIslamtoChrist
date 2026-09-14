@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import bibleData from './data/bible-john.json';
 import { loadContentDatabase } from './services/content-database';
 import { APP_VERSION, GITHUB_RELEASES_URL, checkForGitHubUpdate, getUpdatePlatform, openUpdateUrl } from './services/github-updates';
@@ -168,6 +168,9 @@ function App() {
   const [activeView, setActiveView] = useState(readActiveView);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [bookmarks, setBookmarks] = useState(() => readLocal('fdl-bookmarks', ['verse-john-1-1']));
+  const [highlights, setHighlights] = useState(() => readLocal('fdl-highlights', []));
+  const [notes, setNotes] = useState(() => readLocal('fdl-notes', {}));
+  const [readerPreferences, setReaderPreferences] = useState(() => readLocal('fdl-reader-preferences', { fontScale: 1, tone: 'default' }));
   const [completedLessons, setCompletedLessons] = useState(() => readLocal('fdl-completed-lessons', [1]));
   const [discreetMode, setDiscreetMode] = useState(() => readLocal('fdl-discreet-mode', true));
   const [theme, setTheme] = useState(() => readLocal('fdl-theme', 'light'));
@@ -179,6 +182,9 @@ function App() {
 
   useEffect(() => window.localStorage.setItem('fdl-active-view', JSON.stringify(activeView)), [activeView]);
   useEffect(() => window.localStorage.setItem('fdl-bookmarks', JSON.stringify(bookmarks)), [bookmarks]);
+  useEffect(() => window.localStorage.setItem('fdl-highlights', JSON.stringify(highlights)), [highlights]);
+  useEffect(() => window.localStorage.setItem('fdl-notes', JSON.stringify(notes)), [notes]);
+  useEffect(() => window.localStorage.setItem('fdl-reader-preferences', JSON.stringify(readerPreferences)), [readerPreferences]);
   useEffect(() => window.localStorage.setItem('fdl-completed-lessons', JSON.stringify(completedLessons)), [completedLessons]);
   useEffect(() => window.localStorage.setItem('fdl-discreet-mode', JSON.stringify(discreetMode)), [discreetMode]);
   useEffect(() => window.localStorage.setItem('fdl-theme', JSON.stringify(theme)), [theme]);
@@ -240,6 +246,23 @@ function App() {
     setBookmarks((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
+  function toggleHighlight(id) {
+    setHighlights((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function saveNote(id, text) {
+    setNotes((current) => {
+      const next = { ...current };
+      if (text.trim()) next[id] = text.trim();
+      else delete next[id];
+      return next;
+    });
+  }
+
+  function updateReaderPreference(key, value) {
+    setReaderPreferences((current) => ({ ...current, [key]: value }));
+  }
+
   function toggleLesson(id) {
     setCompletedLessons((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
@@ -299,7 +322,7 @@ function App() {
           ) : (
             <>
               {activeView === 'home' && <Home onNavigate={navigate} onOpenArticle={openArticle} bookmarks={bookmarks} toggleBookmark={toggleBookmark} completedLessons={completedLessons} />}
-              {activeView === 'bible' && <Bible verses={runtimeVerses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} />}
+              {activeView === 'bible' && <Bible verses={runtimeVerses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} highlights={highlights} toggleHighlight={toggleHighlight} notes={notes} saveNote={saveNote} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} />}
               {activeView === 'learn' && <Learn articles={articles} onOpenArticle={openArticle} />}
               {activeView === 'journey' && <Journey completedLessons={completedLessons} toggleLesson={toggleLesson} onNavigate={navigate} />}
               {activeView === 'saved' && <Saved verses={runtimeVerses} bookmarks={bookmarks} toggleBookmark={toggleBookmark} onOpenArticle={openArticle} navigate={navigate} />}
@@ -411,29 +434,87 @@ function QuickCard({ icon, tone, title, text, onClick }) {
   return <button className="quick-card" type="button" onClick={onClick}><span className={`quick-icon tone-${tone}`}><Icon name={icon} size={21} /></span><span className="quick-card-copy"><strong>{title}</strong><small>{text}</small></span><Icon name="chevron" size={17} /></button>;
 }
 
-function Bible({ verses: verseList, searchTerm, setSearchTerm, bookmarks, toggleBookmark }) {
-  const searchMatch = searchTerm.trim().toLowerCase() === 'john 1' || searchTerm.trim().toLowerCase() === 'john 1:1';
+function Bible({ verses: verseList, searchTerm, setSearchTerm, bookmarks, toggleBookmark, highlights, toggleHighlight, notes, saveNote, readerPreferences, updateReaderPreference }) {
+  const [noteVerseId, setNoteVerseId] = useState(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [copyMessage, setCopyMessage] = useState('');
+  const fontScale = Math.min(1.3, Math.max(.85, Number(readerPreferences?.fontScale) || 1));
+  const tone = readerPreferences?.tone || 'default';
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const searchTarget = normalizedSearch && verseList.find((verse) => verse.reference.toLowerCase() === normalizedSearch || `john 1:${verse.number}` === normalizedSearch);
+  const searchMatch = normalizedSearch === 'john 1' || Boolean(searchTarget);
+
+  function verseId(verse) {
+    return `verse-john-1-${verse.number}`;
+  }
+
+  function editNote(verse) {
+    const id = verseId(verse);
+    setNoteVerseId(id);
+    setNoteDraft(notes[id] || '');
+  }
+
+  async function copyVerse(verse) {
+    const value = `${verse.text} — ${verse.reference}`;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value);
+      else {
+        const input = document.createElement('textarea');
+        input.value = value;
+        input.setAttribute('readonly', '');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        input.remove();
+      }
+      setCopyMessage(`${verse.reference} copied`);
+      window.setTimeout(() => setCopyMessage(''), 2200);
+    } catch {
+      setCopyMessage('Copy unavailable on this device');
+    }
+  }
+
   return (
     <div className="bible-page page-enter">
       <SectionIntro eyebrow="Read · Plan · Listen" title="The Bible" description="Read slowly. Ask honestly. Let Scripture meet you where you are." action={<button className="round-icon-button" type="button" aria-label="Bible search"><Icon name="search" /></button>} />
       <div className="reader-layout">
-        <section className="reader-panel">
+        <section className={`reader-panel reader-tone-${tone}`}>
           <div className="reader-toolbar"><div className="reader-tabs"><button className="reader-tab active" type="button">Read</button><button className="reader-tab" type="button" disabled>Plan</button><button className="reader-tab" type="button" disabled>Audio</button></div><span className="translation-pill">KJV sample <Icon name="chevron" size={14} /></span></div>
-          <div className="reference-row"><button className="reference-arrow" type="button" aria-label="Previous chapter"><Icon name="back" size={18} /></button><div className="reference-select">John 1 <Icon name="chevron" size={15} /></div><button className="reference-arrow" type="button" aria-label="Next chapter"><Icon name="arrow" size={18} /></button></div>
+          <div className="reader-tools" aria-label="Reading controls"><div className="reader-font-controls"><button type="button" onClick={() => updateReaderPreference('fontScale', Math.max(.85, fontScale - .1))} aria-label="Decrease Bible text size">A−</button><span>{Math.round(fontScale * 100)}%</span><button type="button" onClick={() => updateReaderPreference('fontScale', Math.min(1.3, fontScale + .1))} aria-label="Increase Bible text size">A+</button></div><button className="reader-tone-button" type="button" onClick={() => updateReaderPreference('tone', tone === 'default' ? 'sepia' : tone === 'sepia' ? 'night' : 'default')} aria-label="Change reading tone">{tone === 'default' ? 'Paper' : tone === 'sepia' ? 'Sepia' : 'Low light'}</button>{copyMessage && <span className="copy-status" role="status">{copyMessage}</span>}</div>
+          <div className="reference-row"><button className="reference-arrow" type="button" aria-label="Previous chapter" disabled><Icon name="back" size={18} /></button><div className="reference-select">John 1 <Icon name="chevron" size={15} /></div><button className="reference-arrow" type="button" aria-label="Next chapter" disabled><Icon name="arrow" size={18} /></button></div>
           <div className="reference-search"><Icon name="search" size={16} /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search a reference, e.g. John 1:1" aria-label="Search Bible reference" />{searchTerm && <button type="button" onClick={() => setSearchTerm('')} aria-label="Clear search"><Icon name="close" size={15} /></button>}</div>
-          {searchTerm && <div className={`search-result ${searchMatch ? 'match' : ''}`}>{searchMatch ? 'Showing John 1 — your reference is ready to read.' : 'Try “John 1” or “John 1:1” in this prototype.'}</div>}
+          {searchTerm && <div className={`search-result ${searchMatch ? 'match' : ''}`}>{searchMatch ? `${searchTarget?.reference || 'John 1'} is ready to read.` : 'Try “John 1” or a verse such as “John 1:5”.'}</div>}
           <div className="chapter-heading"><span className="chapter-kicker">The Gospel according to</span><h2>John 1</h2><span className="chapter-subtitle">The Word Became Flesh</span></div>
-          <div className="verse-list">{verseList.map((verse) => <div className={`verse-row ${verse.number === 5 ? 'verse-highlight' : ''}`} key={verse.number}><span className="verse-number">{verse.number}</span><p>{verse.text}</p><button className={`verse-save ${bookmarks.includes(`verse-john-1-${verse.number}`) ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(`verse-john-1-${verse.number}`)} aria-label={`Save John 1 verse ${verse.number}`}><Icon name="bookmark" size={16} /></button></div>)}</div>
+          <div className="verse-list">{verseList.map((verse) => {
+            const id = verseId(verse);
+            const saved = bookmarks.includes(id);
+            const highlighted = highlights.includes(id);
+            const noted = Boolean(notes[id]);
+            const targeted = searchTarget?.number === verse.number;
+            return <div className="verse-entry" key={verse.number}><div className={`verse-row ${verse.number === 5 ? 'verse-highlight' : ''} ${highlighted ? 'verse-user-highlight' : ''} ${targeted ? 'verse-search-target' : ''}`}><span className="verse-number">{verse.number}</span><p style={{ fontSize: `${17 * fontScale}px` }}>{verse.text}</p><div className="verse-actions"><button className={`verse-action ${saved ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(id)} aria-label={`${saved ? 'Remove' : 'Save'} John 1 verse ${verse.number}`} aria-pressed={saved}><Icon name="bookmark" size={15} /></button><button className={`verse-action ${highlighted ? 'active' : ''}`} type="button" onClick={() => toggleHighlight(id)} aria-label={`${highlighted ? 'Remove' : 'Add'} highlight to John 1 verse ${verse.number}`} aria-pressed={highlighted}><Icon name="sun" size={15} /></button><button className={`verse-action ${noted ? 'noted' : ''}`} type="button" onClick={() => editNote(verse)} aria-label={`${noted ? 'Edit' : 'Add'} note for John 1 verse ${verse.number}`}><Icon name="dialogue" size={15} /></button></div></div>{noteVerseId === id && <div className="verse-note-editor"><label htmlFor={`note-${verse.number}`}>Private note for {verse.reference}</label><textarea id={`note-${verse.number}`} value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Write a thought to return to…" rows="3" /><div><button className="text-button subtle" type="button" onClick={() => setNoteVerseId(null)}>Cancel</button><button className="primary-button" type="button" onClick={() => { saveNote(id, noteDraft); setNoteVerseId(null); }}>Save note</button></div></div>}</div>;
+          })}</div>
           <p className="content-note">Prototype sample text · Translation licensing and attribution review required before release.</p>
         </section>
-        <aside className="reader-side-panel"><div className="side-quote"><Icon name="sparkles" size={22} /><p>“The light shines in the darkness.”</p><span>John 1:5</span></div><div className="study-card"><p className="eyebrow">Study tools</p><button type="button" disabled><Icon name="bookmark" size={17} /> Save a passage <span>⌘</span></button><button type="button" disabled><Icon name="sprout" size={17} /> Add a note <span>Later</span></button><button type="button" disabled><Icon name="learn" size={17} /> Compare translations <span>Later</span></button></div></aside>
+        <aside className="reader-side-panel"><div className="side-quote"><Icon name="sparkles" size={22} /><p>“The light shines in the darkness.”</p><span>John 1:5</span></div><div className="study-card"><p className="eyebrow">Study tools</p><button type="button" onClick={() => toggleBookmark(verseId(verseList[4]))}><Icon name="bookmark" size={17} /> {bookmarks.includes(verseId(verseList[4])) ? 'Remove saved passage' : 'Save a passage'} <span>Local</span></button><button type="button" onClick={() => editNote(verseList[4])}><Icon name="dialogue" size={17} /> Add a private note <span>Local</span></button><button type="button" onClick={() => copyVerse(verseList[4])}><Icon name="scroll" size={17} /> Copy John 1:5 <span>Device</span></button><button type="button" disabled><Icon name="learn" size={17} /> Compare translations <span>Later</span></button></div></aside>
       </div>
     </div>
   );
 }
 
 function Learn({ articles: articleList, onOpenArticle }) {
-  return <div className="learn-page page-enter"><SectionIntro eyebrow="Learn & explore" title="Questions welcome here." description="Clear answers, Scripture first, and room to think at your own pace." action={<button className="round-icon-button" type="button" aria-label="Search learning library"><Icon name="search" /></button>} /><div className="category-pills"><button className="category-pill active" type="button">All</button><button className="category-pill" type="button">Jesus</button><button className="category-pill" type="button">Questions</button><button className="category-pill" type="button">Foundations</button><button className="category-pill" type="button">Life</button></div><div className="article-grid">{articleList.map((article) => <ArticleCard key={article.id} article={article} onOpen={() => onOpenArticle(article)} />)}</div></div>;
+  const [category, setCategory] = useState('All');
+  const [query, setQuery] = useState('');
+  const searchRef = useRef(null);
+  const categories = ['All', 'Jesus', 'Questions', 'Bible', 'Foundations', 'Practice', 'Life'];
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredArticles = articleList.filter((article) => {
+    const categoryMatches = category === 'All' || article.category === category;
+    const queryMatches = !normalizedQuery || `${article.title} ${article.summary} ${article.category}`.toLowerCase().includes(normalizedQuery);
+    return categoryMatches && queryMatches;
+  });
+  return <div className="learn-page page-enter"><SectionIntro eyebrow="Learn & explore" title="Questions welcome here." description="Clear answers, Scripture first, and room to think at your own pace." action={<button className="round-icon-button" type="button" aria-label="Search learning library" onClick={() => searchRef.current?.focus()}><Icon name="search" /></button>} /><div className="reference-search learn-search"><Icon name="search" size={16} /><input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search lessons and questions" aria-label="Search lessons and questions" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear learning search"><Icon name="close" size={15} /></button>}</div><div className="category-pills">{categories.map((option) => <button className={`category-pill ${category === option ? 'active' : ''}`} type="button" key={option} onClick={() => setCategory(option)}>{option}</button>)}</div>{filteredArticles.length > 0 ? <div className="article-grid">{filteredArticles.map((article) => <ArticleCard key={article.id} article={article} onOpen={() => onOpenArticle(article)} />)}</div> : <EmptyState icon="search" title="No lessons found" text="Try another search or choose a different topic." />}</div>;
 }
 
 function ArticleCard({ article, onOpen }) {

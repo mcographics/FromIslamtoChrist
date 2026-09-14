@@ -10,7 +10,7 @@ const fallbackRoot = path.join(projectRoot, 'src', 'data');
 const databasePath = path.join(outputRoot, 'from-darkness-to-light.db');
 const bibleSourcePath = path.join(dataRoot, 'strongs', 'kjv-HG num', 'Jhn.json');
 const bibleOutputPath = path.join(fallbackRoot, 'bible-john.json');
-const contentVersion = process.env.npm_package_version || '0.1.3';
+const contentVersion = process.env.npm_package_version || '0.1.4';
 
 const categories = {
   documentation: new Set(['.md', '.txt', '.key', '.gitattributes', '.gitignore']),

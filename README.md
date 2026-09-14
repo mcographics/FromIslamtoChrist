@@ -14,6 +14,8 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 - Branded application identity using `logo/icon.png` for the app icon and `logo/logo.png` for desktop and Android splash screens
 - Mobile-first Android shell built with Capacitor, including a working phone navigation drawer
 - GitHub-linked update checks for Android and Electron; Windows packaged builds use `electron-updater`
+- Bible study tools for local highlights, private notes, copy, font sizing, and Paper/Sepia/Low-light reading tones
+- Learn screen search and topic filtering with local empty states
 - A versioned SQLite content database generated from `Data`, cataloguing all 1,566 local assets and carrying the structured John 1 runtime sample
 - Offline Bible content loaded from the SQLite database, with a checked-in JSON fallback for development recovery
 - Electron window configured with context isolation, no Node integration, and a sandboxed renderer

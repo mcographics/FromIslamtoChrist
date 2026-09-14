@@ -208,6 +208,12 @@ button:disabled { cursor: not-allowed; }
 .reader-tab { position: relative; padding: 0 0 13px; color: #98a2a2; background: transparent; font-size: 12px; font-weight: 700; }
 .reader-tab.active { color: var(--reader-ink); }
 .reader-tab.active::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--blue); }
+.reader-tools { display: flex; align-items: center; gap: 10px; min-height: 42px; border-bottom: 1px solid var(--reader-line); }
+.reader-font-controls { display: inline-flex; align-items: center; gap: 7px; color: var(--reader-muted); font-size: 9px; font-weight: 800; }
+.reader-font-controls button, .reader-tone-button { min-width: 29px; padding: 6px 8px; color: var(--reader-muted); border: 1px solid var(--reader-line); border-radius: 7px; background: var(--reader-input); font-size: 10px; font-weight: 800; }
+.reader-tone-button { margin-left: auto; }
+.reader-font-controls button:hover, .reader-tone-button:hover { color: var(--reader-ink); border-color: rgba(33, 151, 209, .35); }
+.copy-status { overflow: hidden; color: var(--green); font-size: 9px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .translation-pill, .reference-select { display: inline-flex; align-items: center; gap: 10px; color: var(--reader-muted); font-size: 11px; font-weight: 700; }
 .translation-pill { padding-bottom: 13px; }
 .reference-row { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 15px; }
@@ -217,6 +223,10 @@ button:disabled { cursor: not-allowed; }
 .reference-search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--reader-input-ink); font-size: 12px; }
 .reference-search input::placeholder { color: var(--placeholder); }
 .reference-search button { display: grid; place-items: center; color: var(--reader-muted); background: transparent; }
+.learn-search { margin: 0 0 22px; border-color: var(--line); background: var(--card); }
+.learn-search input { color: var(--ink); }
+.learn-search input::placeholder { color: var(--placeholder); }
+.learn-search button { color: var(--muted); }
 .search-result { margin-top: 10px; padding: 9px 11px; color: #887348; border-radius: 8px; background: #f5edd8; font-size: 11px; }
 .search-result.match { color: #2f7d5b; background: #e2f2e6; }
 .chapter-heading { margin: 29px 0 21px; }
@@ -224,12 +234,24 @@ button:disabled { cursor: not-allowed; }
 .chapter-heading h2 { margin: 5px 0 7px; color: var(--reader-ink); font: 500 35px/1 Georgia, serif; letter-spacing: -.04em; }
 .chapter-subtitle { color: var(--reader-ink); font: 600 14px Georgia, serif; }
 .verse-list { display: grid; gap: 1px; }
-.verse-row { position: relative; display: grid; grid-template-columns: 20px 1fr 28px; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--reader-line); }
+.verse-entry { border-bottom: 1px solid var(--reader-line); }
+.verse-row { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; padding: 8px 0; }
 .verse-row p { margin: 0; color: var(--reader-ink); font: 17px/1.53 Georgia, serif; }
 .verse-number { padding-top: 3px; color: #1e91c5; font-size: 11px; font-weight: 800; }
-.verse-save { align-self: center; display: grid; place-items: center; width: 28px; height: 28px; color: #afb7b3; background: transparent; border-radius: 50%; }
-.verse-save:hover, .verse-save.saved { color: var(--gold-deep); background: rgba(232, 189, 112, .18); }
+.verse-actions { display: flex; align-items: center; gap: 3px; align-self: center; }
+.verse-action { display: grid; place-items: center; width: 26px; height: 26px; color: #afb7b3; background: transparent; border-radius: 50%; }
+.verse-action:hover, .verse-action.saved, .verse-action.active, .verse-action.noted { color: var(--gold-deep); background: rgba(232, 189, 112, .18); }
 .verse-highlight { padding-right: 7px; padding-left: 7px; margin: 0 -7px; border-radius: 8px; background: rgba(232, 189, 112, .12); }
+.verse-user-highlight { padding-right: 7px; padding-left: 7px; margin: 0 -7px; border-radius: 8px; background: rgba(247, 213, 141, .52); }
+.verse-search-target { box-shadow: inset 3px 0 0 var(--blue); }
+.verse-note-editor { margin: 0 0 10px 30px; padding: 12px; border: 1px solid var(--reader-line); border-radius: 10px; background: var(--reader-input); }
+.verse-note-editor label { display: block; margin-bottom: 7px; color: var(--reader-muted); font-size: 9px; font-weight: 800; }
+.verse-note-editor textarea { display: block; width: 100%; resize: vertical; padding: 9px; color: var(--reader-input-ink); border: 1px solid var(--reader-line); border-radius: 7px; outline: 0; background: var(--input-surface); font: 12px/1.45 Georgia, serif; }
+.verse-note-editor textarea:focus { border-color: var(--blue); }
+.verse-note-editor > div { display: flex; justify-content: flex-end; gap: 9px; margin-top: 9px; }
+.verse-note-editor .primary-button { min-height: 31px; padding: 0 12px; font-size: 10px; }
+.reader-tone-sepia { --paper: #f1e6cf; --reader-ink: #493a2b; --reader-muted: #806f58; --reader-line: rgba(92, 69, 39, .19); --reader-input: #e8dbc0; --reader-input-ink: #493a2b; }
+.reader-tone-night { --paper: #1c2529; --reader-ink: #e2e8e4; --reader-muted: #a5b3ae; --reader-line: rgba(220, 233, 226, .16); --reader-input: #29383d; --reader-input-ink: #e2e8e4; }
 .content-note { margin: 22px 0 0; color: var(--reader-muted); font-size: 9px; font-style: italic; }
 .reader-side-panel { display: grid; gap: 18px; }
 .side-quote { padding: 22px; color: #f9f7ed; border-radius: 17px; background: linear-gradient(145deg, #315a68, #1c3848); }
@@ -434,8 +456,11 @@ button:disabled { cursor: not-allowed; }
   .reader-toolbar { align-items: flex-end; }
   .reader-tabs { gap: 15px; }
   .translation-pill { max-width: 90px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-  .verse-row { grid-template-columns: 17px 1fr 25px; gap: 7px; }
+  .verse-row { grid-template-columns: 17px minmax(0, 1fr) auto; gap: 7px; }
   .verse-row p { font-size: 16px; }
+  .verse-actions { gap: 1px; }
+  .verse-action { width: 24px; height: 24px; }
+  .verse-note-editor { margin-left: 24px; }
   .journey-card { padding: 20px 15px; }
   .step-copy span { line-height: 1.3; }
   .step-action { font-size: 9px; }
