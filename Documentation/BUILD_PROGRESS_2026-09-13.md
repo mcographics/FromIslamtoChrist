@@ -124,12 +124,12 @@ The resulting build was compiled and the generated database was independently ve
 | `0.1.3` | SQLite content catalog | `12cbc4b` / `v0.1.3` | Published history |
 | `0.1.4` | Local Bible study tools and Learn search | `2b077d8` / `v0.1.4` | Published history |
 | `0.1.5` | Full offline Bible corpus and chapter navigation | `fe985db` / `v0.1.5` | Published history |
-| `0.2.0` | Privacy slice: local PIN, inactivity lock, manual lock, and local-data deletion | `91c394e` / `v0.2.0` | Published release; remains installed on the phone |
+| `0.2.0` | Privacy slice: local PIN, inactivity lock, manual lock, and local-data deletion | `91c394e` / `v0.2.0` | Published release; corrected assets republished |
 | `0.2.1` | Responsive Android layout correction and release/website alignment | `8d097af` / `v0.2.1` | Current public release |
 
 ## v0.2.1 release evidence
 
-- Application commit: `8d097af Fix Android responsive layout in v0.2.1`.
+- Application commit: `41acd0b Rename release artifacts to From Islam to Christ`.
 - Git tag: `v0.2.1`.
 - App repository branch: `main`, pushed to GitHub.
 - GitHub Actions workflow: [successful v0.2.1 build](https://github.com/mcographics/FromIslamtoChrist/actions/runs/34797640654).
@@ -138,8 +138,9 @@ The resulting build was compiled and the generated database was independently ve
   - Windows installer: `From-Islam-to-Christ-0.2.1-x64.exe`
   - Windows blockmap and `latest.yml`
   - Android APK: `From-Islam-to-Christ-0.2.1.apk`
-- Published Android APK SHA-256: `6b482341af22256604d3333c75215932daa83932482abdc4d3a24b1328cc59cd`.
-- Direct Android download: [v0.2.1 app-debug.apk](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.1/app-debug.apk).
+- Published corrected Android APK SHA-256: `7b3e818c557a283b04f55304ba95f24ded27166837c21b340af4309d1dc95c28`.
+- Direct Android download: [v0.2.1 From-Islam-to-Christ APK](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.1/From-Islam-to-Christ-0.2.1.apk).
+- The existing public `v0.2.0` release was also replaced with `From-Islam-to-Christ-0.2.0.apk`, `From-Islam-to-Christ-0.2.0-x64.exe`, its blockmap, and a correctly named `latest.yml`.
 
 ## Website work and deployment evidence
 
@@ -173,27 +174,25 @@ These checks establish source/build/database/deployment evidence. They do not su
 
 ## Phone installation status
 
-The connected Android phone currently remains on:
+The connected Android phone is now running:
 
 ```text
 Package: com.mcographics.fromdarknesstolight
-Version code: 2
-Version name: 0.2.0
+Version code: 3
+Version name: 0.2.1
 ```
 
-The v0.2.1 APK was downloaded and verified against the public GitHub SHA-256. An in-place `adb install -r` was attempted, but Android rejected it with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` because the v0.2.0 and v0.2.1 debug APKs have different signing certificates.
+The corrected `v0.2.1` APK was built with the public label **From Islam to Christ**, verified, and installed after explicit authorization to remove the prior debug-signed `v0.2.0` installation. The package is `com.mcographics.fromdarknesstolight`, the launched activity is `.MainActivity`, and the installed application reports version code `3` / version name `0.2.1`.
 
-The current v0.2.0 installation was not removed. Installing v0.2.1 on that phone requires an uninstall/reinstall, which will erase local app data such as bookmarks, notes, highlights, journey progress, PIN state, and reader preferences. Explicit user approval is required before that destructive step.
+The uninstall removed local app data from the prior installation, including bookmarks, notes, highlights, journey progress, PIN state, and reader preferences. The new APK uses the current local debug certificate `dc272c4c52d0e4fbfab20f110ce52a7ffea0fca517fa735a898100d32d90df3b`; future update-compatible Android testing requires keeping this signing identity stable or moving to a protected production key.
 
 ## Remaining work and release gates
 
-1. Decide whether to erase the current phone installation and install the v0.2.1 debug APK fresh.
-2. For update-compatible Android releases, establish and protect one production signing key; do not continue using changing debug certificates for upgrade testing.
-3. Choose the intended Android distribution path: Play Store, managed/private distribution, or signed GitHub APK release.
-4. Complete the Data asset license manifest, attribution review, and content review described in [`plan.md`](./plan.md).
-5. Perform full visual and interaction QA on a representative Windows desktop and Android phone after the fresh v0.2.1 install.
-6. Establish and protect one stable Android signing key before relying on in-place upgrades across devices.
-7. Keep the privacy boundary visible and review the local PIN implementation before describing the app as encrypted or secure against device-level inspection.
+1. For update-compatible Android releases, establish and protect one production signing key; do not continue using changing debug certificates for upgrade testing.
+2. Choose the intended Android distribution path: Play Store, managed/private distribution, or signed GitHub APK release.
+3. Complete the Data asset license manifest, attribution review, and content review described in [`plan.md`](./plan.md).
+4. Perform full visual and interaction QA on a representative Windows desktop and Android phone after the fresh install.
+5. Keep the privacy boundary visible and review the local PIN implementation before describing the app as encrypted or secure against device-level inspection.
 
 ## Important file references
 
