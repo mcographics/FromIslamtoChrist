@@ -71,6 +71,20 @@ async function createSnapshot() {
   const database = await getDatabase();
   const metadata = Object.fromEntries(rowsFromResult(database.exec('SELECT key, value FROM database_meta')).map((row) => [row.key, row.value]));
   const groups = rowsFromResult(database.exec('SELECT name, file_count AS fileCount, total_bytes AS totalBytes FROM source_groups ORDER BY name'));
+  const sourceAssets = rowsFromResult(database.exec(`
+    SELECT id,
+      path,
+      name,
+      group_name AS groupName,
+      category,
+      type,
+      extension,
+      size_bytes AS sizeBytes,
+      previewable,
+      review_status AS reviewStatus
+    FROM source_assets
+    ORDER BY path
+  `)).map((asset) => ({ ...asset, previewable: Boolean(asset.previewable) }));
   const bibleBooks = rowsFromResult(database.exec(`
     SELECT book_id AS id, book_name AS name, abbreviation, book_order AS bookOrder, chapter_count AS chapterCount
     FROM bible_books
@@ -86,6 +100,7 @@ async function createSnapshot() {
     sourceAssetCount: Number(metadata.source_asset_count || 0),
     sourceAssetBytes: Number(metadata.source_asset_bytes || 0),
     groups,
+    sourceAssets,
     bibleTranslation: metadata.bible_translation || 'KJV',
     bibleBookCount: Number(metadata.bible_book_count || bibleBooks.length),
     bibleVerseCount: Number(metadata.bible_verse_count || 0),

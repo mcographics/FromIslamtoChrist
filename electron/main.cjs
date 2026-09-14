@@ -33,7 +33,7 @@ function setupAutoUpdater() {
   }
 
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.on('checking-for-update', () => publishUpdateStatus('checking'));
   autoUpdater.on('update-available', (info) => publishUpdateStatus('available', { version: info.version, releaseName: info.releaseName || null }));
   autoUpdater.on('update-not-available', (info) => publishUpdateStatus('current', { version: info.version || app.getVersion() }));
@@ -82,7 +82,7 @@ function createWindow() {
     minHeight: 680,
     backgroundColor: '#10212d',
     icon: appIconPath,
-    title: 'From Darkness to Light',
+    title: 'From Islam to Christ',
     show: false,
     webPreferences: {
       contextIsolation: true,

@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import bibleData from './data/bible-john.json';
 import { loadBibleChapter, loadContentDatabase } from './services/content-database';
-import { APP_VERSION, GITHUB_RELEASES_URL, checkForGitHubUpdate, getUpdatePlatform, openUpdateUrl } from './services/github-updates';
+import {
+  APP_VERSION,
+  GITHUB_RELEASES_URL,
+  checkForGitHubUpdate,
+  downloadAndroidUpdate,
+  getUpdatePlatform,
+  installAndroidUpdate,
+  openAndroidInstallSettings,
+  openUpdateUrl,
+} from './services/github-updates';
 
 const navigation = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -9,6 +18,7 @@ const navigation = [
   { id: 'learn', label: 'Learn', icon: 'learn' },
   { id: 'journey', label: 'Journey', icon: 'journey' },
   { id: 'saved', label: 'Saved', icon: 'bookmark' },
+  { id: 'library', label: 'Library', icon: 'database' },
 ];
 
 const articles = [
@@ -222,6 +232,7 @@ function App() {
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [updateState, setUpdateState] = useState({ status: 'idle', currentVersion: APP_VERSION });
+  const androidDownloadPromise = useRef(null);
   const [bibleLocation, setBibleLocation] = useState(() => readLocal('fdl-bible-location', { bookId: 'JHN', chapter: 1 }));
   const [bibleChapterLoading, setBibleChapterLoading] = useState(false);
   const [contentDatabase, setContentDatabase] = useState({ status: 'loading', sourceAssetCount: 0, contentVersion: APP_VERSION, bibleBooks: [], bibleVerses: [] });
@@ -289,6 +300,42 @@ function App() {
     return () => { active = false; };
   }, [contentDatabase.status, contentDatabase.bibleLocation?.bookId, contentDatabase.bibleLocation?.chapter, bibleLocation.bookId, bibleLocation.chapter]);
 
+  async function startAndroidDownload(update) {
+    if (!update?.available || update.platform !== 'android') return update;
+    if (androidDownloadPromise.current) return androidDownloadPromise.current;
+
+    const downloadPromise = (async () => {
+      setUpdateState((current) => ({ ...current, ...update, status: 'downloading', percent: 0 }));
+      try {
+        const result = await downloadAndroidUpdate(update, (progress) => {
+          setUpdateState((current) => ({ ...current, ...progress, status: 'downloading', latestVersion: update.latestVersion, version: update.latestVersion }));
+        });
+        const nextState = {
+          ...update,
+          ...result,
+          status: 'downloaded',
+          version: update.latestVersion,
+          latestVersion: update.latestVersion,
+          percent: 100,
+        };
+        setUpdateState(nextState);
+        return nextState;
+      } catch (error) {
+        const nextState = {
+          ...update,
+          status: 'error',
+          message: error?.message || 'The Android update could not be downloaded inside the app.',
+        };
+        setUpdateState(nextState);
+        return nextState;
+      } finally {
+        androidDownloadPromise.current = null;
+      }
+    })();
+    androidDownloadPromise.current = downloadPromise;
+    return downloadPromise;
+  }
+
   async function checkForUpdates() {
     setUpdateState((current) => ({ ...current, status: 'checking' }));
     try {
@@ -298,6 +345,7 @@ function App() {
         return result;
       }
       const result = await checkForGitHubUpdate();
+      if (result.available && result.platform === 'android') return startAndroidDownload(result);
       const nextState = { ...result, status: result.available ? 'available' : 'current' };
       setUpdateState(nextState);
       return nextState;
@@ -417,11 +465,31 @@ function App() {
   }
 
   async function handleUpdateAction() {
-    if (updateState.status === 'downloaded' && window.fromDarkness?.installUpdate) {
-      await window.fromDarkness.installUpdate();
-      return;
+    try {
+      const platform = updateState.platform || getUpdatePlatform();
+      if (platform === 'android') {
+        if (updateState.status === 'downloaded') {
+          const result = await installAndroidUpdate();
+          if (result?.requiresPermission) {
+            setUpdateState((current) => ({ ...current, status: 'permission-required', message: result.message }));
+            return openAndroidInstallSettings();
+          }
+          return result;
+        }
+        if (updateState.status === 'permission-required') {
+          const result = await installAndroidUpdate();
+          if (result?.requiresPermission) return openAndroidInstallSettings();
+          return result;
+        }
+        if (updateState.status === 'available') return startAndroidDownload(updateState);
+        return undefined;
+      }
+      if (updateState.status === 'downloaded' && window.fromDarkness?.installUpdate) return window.fromDarkness.installUpdate();
+      return openUpdateUrl(updateState.downloadUrl || updateState.notesUrl || GITHUB_RELEASES_URL);
+    } catch (error) {
+      setUpdateState((current) => ({ ...current, status: 'error', message: error?.message || 'The update could not be installed.' }));
+      return { ok: false, message: error?.message || 'The update could not be installed.' };
     }
-    await openUpdateUrl(updateState.downloadUrl || updateState.notesUrl || GITHUB_RELEASES_URL);
   }
 
   if (privacyPin && privacyLocked) {
@@ -461,7 +529,7 @@ function App() {
         </header>
 
         {mobileMenuOpen && <MobileDrawer activeView={activeView} selectedArticle={selectedArticle} theme={theme} setTheme={setTheme} onNavigate={navigate} onClose={() => setMobileMenuOpen(false)} />}
-        {(updateState.status === 'available' || updateState.status === 'downloading' || updateState.status === 'downloaded') && <UpdateBanner updateState={updateState} onAction={handleUpdateAction} />}
+        {(updateState.status === 'available' || updateState.status === 'downloading' || updateState.status === 'downloaded' || updateState.status === 'permission-required') && <UpdateBanner updateState={updateState} onAction={handleUpdateAction} />}
 
         <div className="page-content">
           {selectedArticle ? (
@@ -473,7 +541,8 @@ function App() {
               {activeView === 'learn' && <Learn articles={articles} onOpenArticle={openArticle} />}
               {activeView === 'journey' && <Journey completedLessons={completedLessons} toggleLesson={toggleLesson} onNavigate={navigate} />}
               {activeView === 'saved' && <Saved verses={runtimeVerses} bookmarks={bookmarks} toggleBookmark={toggleBookmark} onOpenArticle={openArticle} navigate={navigate} />}
-              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} contentDatabase={contentDatabase} privacyPinEnabled={Boolean(privacyPin)} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onLockApp={lockApp} onDeletePrivateData={deletePrivateData} />}
+              {activeView === 'library' && <Library assets={contentDatabase.sourceAssets || []} />}
+              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} onUpdateAction={handleUpdateAction} contentDatabase={contentDatabase} privacyPinEnabled={Boolean(privacyPin)} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onLockApp={lockApp} onDeletePrivateData={deletePrivateData} />}
             </>
           )}
         </div>
@@ -505,16 +574,19 @@ function UpdateBanner({ updateState, onAction }) {
   const platform = updateState.platform || getUpdatePlatform();
   const isDownloaded = updateState.status === 'downloaded';
   const isDownloading = updateState.status === 'downloading';
+  const needsPermission = updateState.status === 'permission-required';
   const isAndroid = platform === 'android';
-  const title = isDownloaded ? 'Update ready' : isDownloading ? 'Downloading update' : isAndroid ? 'Android update available' : 'Update available';
+  const title = isDownloaded ? 'Update ready to install' : needsPermission ? 'Allow Android installation' : isDownloading ? 'Downloading update' : isAndroid ? 'Android update available' : 'Update available';
   const detail = isDownloaded
-    ? `Version ${updateState.version || updateState.latestVersion} is ready to install.`
+    ? `Version ${updateState.version || updateState.latestVersion} is downloaded inside the app.`
+    : needsPermission
+      ? 'Android needs permission before the downloaded update can be installed.'
     : isDownloading
-      ? `${updateState.percent || 0}% downloaded from GitHub.`
+      ? `${updateState.percent || 0}% downloaded inside the app from GitHub.`
       : `Version ${updateState.version || updateState.latestVersion} is available from GitHub.`;
-  const actionLabel = isDownloaded ? 'Restart to install' : isDownloading ? `${updateState.percent || 0}%` : isAndroid ? 'Download' : 'Downloading…';
+  const actionLabel = isDownloaded ? 'Install update' : needsPermission ? 'Allow installs' : isDownloading ? `${updateState.percent || 0}%` : isAndroid ? 'Download update' : 'Downloading…';
 
-  return <section className="update-banner" role="status"><span className="update-banner-icon"><Icon name={isDownloaded ? 'check' : 'sparkles'} size={18} /></span><span className="update-banner-copy"><strong>{title}</strong><small>{detail}</small></span>{(!isDownloading || isDownloaded) && <button className="update-banner-button" type="button" onClick={onAction}>{actionLabel}<Icon name="arrow" size={14} /></button>}{isDownloading && <span className="update-banner-progress">{actionLabel}</span>}</section>;
+  return <section className="update-banner" role="status"><span className="update-banner-icon"><Icon name={isDownloaded ? 'check' : needsPermission ? 'lock' : 'sparkles'} size={18} /></span><span className="update-banner-copy"><strong>{title}</strong><small>{detail}</small></span>{(!isDownloading || isDownloaded) && <button className="update-banner-button" type="button" onClick={onAction}>{actionLabel}<Icon name="arrow" size={14} /></button>}{isDownloading && <span className="update-banner-progress">{actionLabel}</span>}</section>;
 }
 
 function BrandMark() {
@@ -531,7 +603,7 @@ function NavButton({ item, active, onClick }) {
 }
 
 function BottomNav({ activeView, selectedArticle, onNavigate }) {
-  return <nav className="bottom-nav" aria-label="Mobile navigation">{navigation.map((item) => <NavButton key={item.id} item={item} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}</nav>;
+  return <nav className="bottom-nav" aria-label="Mobile navigation">{navigation.filter((item) => item.id !== 'library').map((item) => <NavButton key={item.id} item={item} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}</nav>;
 }
 
 function SectionIntro({ eyebrow, title, description, action }) {
@@ -711,7 +783,7 @@ function EmptyState({ icon, title, text, action }) {
   return <div className="empty-state"><span><Icon name={icon} size={24} /></span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
 
-function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice, contentDatabase, privacyPinEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onLockApp, onDeletePrivateData }) {
+function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice, updateState, onCheckUpdates, onUpdateAction, contentDatabase, privacyPinEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onLockApp, onDeletePrivateData }) {
   const databaseValue = contentDatabase?.status === 'ready'
     ? `${contentDatabase.sourceAssetCount.toLocaleString()} sources · ${contentDatabase.bibleBookCount || 0} books`
     : contentDatabase?.status === 'loading' ? 'Loading locally' : 'Sample fallback';
@@ -743,6 +815,7 @@ function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyN
             <SettingRow icon="bell" title="Notifications" value="Quiet by default" />
             <SettingRow icon="info" title="About this prototype" value={`v${APP_VERSION}`} />
           </div>
+          <UpdateSettings updateState={updateState} onCheckUpdates={onCheckUpdates} onUpdateAction={onUpdateAction} />
           <PrivacyLockSettings enabled={privacyPinEnabled} onEnable={onEnablePrivacyLock} onDisable={onDisablePrivacyLock} onLock={onLockApp} />
           <PrivateDataSettings onDelete={onDeletePrivateData} />
         </section>
@@ -752,6 +825,90 @@ function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyN
         </aside>
       </div>
       {showPrivacyNotice && <PrivacyNotice onClose={() => setShowPrivacyNotice(false)} />}
+    </div>
+  );
+}
+
+function UpdateSettings({ updateState, onCheckUpdates, onUpdateAction }) {
+  const platform = updateState?.platform || getUpdatePlatform();
+  const isDownloading = updateState?.status === 'downloading';
+  const isChecking = updateState?.status === 'checking';
+  const isDownloaded = updateState?.status === 'downloaded';
+  const needsPermission = updateState?.status === 'permission-required';
+  const version = updateState?.version || updateState?.latestVersion;
+  const statusCopy = isChecking
+    ? 'Checking GitHub for the latest release…'
+    : isDownloading
+      ? `${updateState.percent || 0}% downloaded inside the app${version ? ` · v${version}` : ''}`
+      : isDownloaded
+        ? `v${version} is ready to install.`
+        : needsPermission
+          ? updateState.message || 'Allow this app to install its downloaded update.'
+          : updateState.status === 'error'
+            ? updateState.message || 'The update check failed.'
+            : updateState.status === 'current'
+              ? `You are running the latest ${platform === 'android' ? 'Android' : 'Windows'} release.`
+              : 'Updates are checked against the public GitHub release.';
+
+  return (
+    <section className="update-settings-card card-surface" aria-labelledby="update-settings-heading">
+      <div className="update-settings-heading">
+        <div><p className="eyebrow">Stay current</p><h2 id="update-settings-heading">App updates</h2></div>
+        <span className="update-platform"><Icon name={platform === 'android' ? 'book' : 'database'} size={16} /> {platform === 'android' ? 'Android' : 'Windows'}</span>
+      </div>
+      <p className="update-settings-description">Checks GitHub for a newer release. Android updates download into the app and open Android’s installer only when you choose Install update.</p>
+      <div className="update-settings-actions">
+        <button className="secondary-button" type="button" onClick={onCheckUpdates} disabled={isChecking || isDownloading}><Icon name="sparkles" size={15} /> {isChecking ? 'Checking…' : 'Check for updates'}</button>
+        {(isDownloaded || needsPermission) && <button className="primary-button update-install-button" type="button" onClick={onUpdateAction}><Icon name={needsPermission ? 'lock' : 'check'} size={15} /> {needsPermission ? 'Allow installs' : 'Install update'}</button>}
+      </div>
+      <p className={`update-settings-status status-${updateState?.status || 'idle'}`} role="status"><Icon name={isDownloaded ? 'check' : updateState?.status === 'error' ? 'info' : 'sparkles'} size={14} /> {statusCopy}</p>
+    </section>
+  );
+}
+
+function formatAssetSize(sizeBytes) {
+  const size = Number(sizeBytes) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function assetIcon(category) {
+  if (category === 'media') return 'sparkles';
+  if (category === 'bible') return 'book';
+  if (category === 'reference') return 'scroll';
+  if (category === 'archive') return 'database';
+  return 'info';
+}
+
+function Library({ assets }) {
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
+  const [group, setGroup] = useState('All');
+  const [selectedId, setSelectedId] = useState(null);
+  const categories = useMemo(() => ['All', ...new Set(assets.map((asset) => asset.category).filter(Boolean))], [assets]);
+  const groups = useMemo(() => ['All', ...new Set(assets.map((asset) => asset.groupName).filter(Boolean))], [assets]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredAssets = useMemo(() => assets.filter((asset) => {
+    const categoryMatches = category === 'All' || asset.category === category;
+    const groupMatches = group === 'All' || asset.groupName === group;
+    const queryMatches = !normalizedQuery || `${asset.path} ${asset.name} ${asset.type} ${asset.groupName}`.toLowerCase().includes(normalizedQuery);
+    return categoryMatches && groupMatches && queryMatches;
+  }), [assets, category, group, normalizedQuery]);
+  const selectedAsset = assets.find((asset) => asset.id === selectedId);
+
+  return (
+    <div className="library-page page-enter">
+      <SectionIntro eyebrow="Every source, accounted for" title="Source library" description="The complete local Data catalog is available here. The app uses every asset’s metadata without bundling unreviewed raw research files into the install." action={<span className="library-total"><Icon name="database" size={16} /> {assets.length.toLocaleString()} indexed</span>} />
+      <div className="library-controls">
+        <div className="reference-search library-search"><Icon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search names, paths, or types" aria-label="Search source library" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear library search"><Icon name="close" size={15} /></button>}</div>
+        <label className="library-filter"><span>Category</span><select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((option) => <option key={option} value={option}>{option === 'All' ? 'All categories' : option}</option>)}</select><Icon name="chevron" size={14} /></label>
+        <label className="library-filter"><span>Source group</span><select value={group} onChange={(event) => setGroup(event.target.value)}>{groups.map((option) => <option key={option} value={option}>{option === 'All' ? 'All groups' : option}</option>)}</select><Icon name="chevron" size={14} /></label>
+      </div>
+      <div className="library-summary"><strong>{filteredAssets.length.toLocaleString()}</strong><span>assets shown</span><span className="library-summary-divider" /> <span>{assets.length.toLocaleString()} total indexed from Data</span></div>
+      {filteredAssets.length > 0 ? <div className="asset-list" aria-label="Indexed source assets">{filteredAssets.map((asset) => <button className={`asset-row ${selectedId === asset.id ? 'selected' : ''}`} type="button" key={asset.id} onClick={() => setSelectedId(asset.id)}><span className={`asset-icon asset-icon-${asset.category}`}><Icon name={assetIcon(asset.category)} size={18} /></span><span className="asset-copy"><strong>{asset.name}</strong><small>{asset.path}</small></span><span className="asset-type">{asset.type}</span><span className="asset-size">{formatAssetSize(asset.sizeBytes)}</span><span className={`asset-review asset-review-${asset.reviewStatus}`}>{asset.reviewStatus === 'source-notice' ? 'Notice' : 'Review'}</span><Icon name="chevron" size={15} /></button>)}</div> : <EmptyState icon="search" title="No source assets found" text="Try a different name, path, category, or source group." />}
+      {selectedAsset && <section className="asset-detail card-surface" aria-labelledby="asset-detail-heading"><div className="asset-detail-heading"><span className={`asset-icon asset-icon-${selectedAsset.category}`}><Icon name={assetIcon(selectedAsset.category)} size={20} /></span><div><p className="eyebrow">Indexed source asset</p><h2 id="asset-detail-heading">{selectedAsset.name}</h2></div><button className="icon-button" type="button" onClick={() => setSelectedId(null)} aria-label="Close asset details"><Icon name="close" size={17} /></button></div><dl className="asset-detail-grid"><div><dt>Path</dt><dd>{selectedAsset.path}</dd></div><div><dt>Group</dt><dd>{selectedAsset.groupName}</dd></div><div><dt>Type</dt><dd>{selectedAsset.type}</dd></div><div><dt>Size</dt><dd>{formatAssetSize(selectedAsset.sizeBytes)}</dd></div><div><dt>Catalog status</dt><dd>{selectedAsset.reviewStatus === 'source-notice' ? 'Source notice detected' : 'Redistribution review required'}</dd></div><div><dt>Runtime use</dt><dd>{selectedAsset.previewable ? 'Searchable and metadata-indexed' : 'Metadata-indexed; raw file stays outside the renderer bundle'}</dd></div></dl></section>}
     </div>
   );
 }

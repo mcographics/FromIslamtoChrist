@@ -1,6 +1,6 @@
 # Android and release architecture
 
-This document records the implementation and release decision for the From Darkness to Light prototype, currently published on the website as From Islam to Christ.
+This document records the implementation and release decision for the From Islam to Christ prototype. The public product name is From Islam to Christ; the existing Android application ID and runtime database filename remain legacy technical identifiers for compatibility.
 
 ## Platform decision
 
@@ -22,7 +22,7 @@ The v0.2.1 patch corrects the phone layout boundary in the shared renderer. The 
 
 The Windows application uses `electron-updater` and the GitHub Releases provider. Packaged builds check the latest release on startup, download an available Windows installer update, and offer restart-to-install. Development runs intentionally report that update checks require a packaged build.
 
-The Android renderer checks the public GitHub Releases API. When a newer APK is available, it opens the matching GitHub asset through the Android browser surface. Android requires the user to approve installation of a downloaded APK; a third-party APK cannot silently replace itself. A production Android release still requires a stable signing key and a documented distribution choice such as Google Play, managed private distribution, or a signed GitHub release.
+The Android renderer checks the public GitHub Releases API. When a newer APK is available, the registered native `AndroidUpdater` plugin streams the GitHub release asset into the app's private `files/updates` directory, reports download progress, and verifies the GitHub-provided SHA-256 digest when available. The user-facing `Install update` action hands that private file to Android's package installer through the app's `FileProvider`; the phone browser is not used. Android requires the user to approve installation, and Android 8+ may require the user to allow this app to install packages. A production Android release still requires a stable signing key and a documented distribution choice such as Google Play, managed private distribution, or a signed GitHub release.
 
 ## Data and licensing boundary
 

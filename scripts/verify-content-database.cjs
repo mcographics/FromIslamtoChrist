@@ -4,6 +4,7 @@ const path = require('node:path');
 const initSqlJs = require('sql.js');
 
 const projectRoot = path.resolve(__dirname, '..');
+const dataRoot = path.join(projectRoot, 'Data');
 const databasePath = path.join(projectRoot, 'public', 'data', 'from-darkness-to-light.db');
 const packageVersion = require(path.join(projectRoot, 'package.json')).version;
 
@@ -11,6 +12,14 @@ function rowsFromResult(result) {
   if (!result?.[0]) return [];
   const [{ columns, values }] = result;
   return values.map((value) => Object.fromEntries(columns.map((column, index) => [column, value[index]])));
+}
+
+function walkDataFiles(directory, relativeRoot = '') {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const relativePath = relativeRoot ? `${relativeRoot}/${entry.name}` : entry.name;
+    const fullPath = path.join(directory, entry.name);
+    return entry.isDirectory() ? walkDataFiles(fullPath, relativePath) : [relativePath];
+  });
 }
 
 async function main() {
@@ -26,6 +35,11 @@ async function main() {
   assert.equal(metadata.content_version, packageVersion);
   assert.equal(sourceCount, Number(metadata.source_asset_count));
   assert.equal(ftsCount, sourceCount);
+  if (fs.existsSync(dataRoot)) {
+    const dataPaths = walkDataFiles(dataRoot).sort();
+    const indexedPaths = rowsFromResult(database.exec('SELECT path FROM source_assets ORDER BY path')).map((row) => row.path).sort();
+    assert.deepEqual(indexedPaths, dataPaths, 'The runtime database does not account for every file in Data.');
+  }
   assert.equal(bookCount, Number(metadata.bible_book_count));
   assert.equal(bookCount, 66);
   assert.equal(verseCount, Number(metadata.bible_verse_count));
