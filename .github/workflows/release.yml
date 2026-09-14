@@ -51,9 +51,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $releaseVersion = "${{ github.ref_name }}".TrimStart('v')
+          $releaseTag = "${{ github.ref_name }}"
+          $releaseVersion = $releaseTag.TrimStart('v')
           $androidAsset = "release/From-Islam-to-Christ-$releaseVersion.apk"
           Copy-Item -LiteralPath 'android/app/build/outputs/apk/debug/app-debug.apk' -Destination $androidAsset
           $assets = @($androidAsset)
           $assets += (Get-ChildItem -LiteralPath release -File | Where-Object { $_.Extension -in @('.exe', '.yml', '.blockmap') } | ForEach-Object { $_.FullName })
-          gh release create "${{ github.ref_name }}" $assets --title "From Islam to Christ ${{ github.ref_name }}" --generate-notes
+          $releaseNotes = @"
+          # From Islam to Christ $releaseTag
+
+          - Version: $releaseVersion
+          - Release tag: $releaseTag
+          - Release channel: Stable
+          - Platforms: Windows and Android
+
+          This release is distributed from the tagged build above. Review the included assets and the commit history for the complete change set.
+
+          **Full Changelog**: https://github.com/mcographics/FromIslamtoChrist/commits/$releaseTag
+          "@
+          gh release create $releaseTag $assets --title "From Islam to Christ $releaseTag" --notes $releaseNotes

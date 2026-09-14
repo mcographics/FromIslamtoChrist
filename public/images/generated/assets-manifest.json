@@ -22,6 +22,171 @@
       "promptSummary": "Dedicated portrait companion artwork with a quiet vertical hillside path, dark upper-left atmosphere, warm upper-right sunrise, and restrained distant cross, no text.",
       "alt": "",
       "createdDuringMilestone": "hero-v0.1.2-visual-pass"
+    },
+    {
+      "id": "section-bible-study",
+      "file": "images/generated/sections/bible-study.webp",
+      "route": "bible",
+      "component": "Bible.section-art",
+      "purpose": "Bible reader banner for Scripture reading and word study.",
+      "aspectRatio": "wide",
+      "promptSummary": "Quiet study room with an open Bible, subtle Hebrew and Greek study marks, and warm morning light; no readable text.",
+      "alt": "An open Bible resting on a warm study table in morning light.",
+      "createdDuringMilestone": "section-art-v0.2.2"
+    },
+    {
+      "id": "section-learn-questions",
+      "file": "images/generated/sections/learn-questions.webp",
+      "route": "learn",
+      "component": "Learn.section-art",
+      "purpose": "Learning banner for questions, foundations, Jesus, and Bible reliability topics.",
+      "aspectRatio": "wide",
+      "promptSummary": "Open books and a cup near a sunlit window with overlapping circles suggesting conversation and discovery; no readable text.",
+      "alt": "Open books near a bright window in a quiet study.",
+      "createdDuringMilestone": "section-art-v0.2.2"
+    },
+    {
+      "id": "section-journey-path",
+      "file": "images/generated/sections/journey-path.webp",
+      "route": "journey",
+      "component": "Journey.section-art",
+      "purpose": "Guided Journey banner showing a safe path toward hope and faith.",
+      "aspectRatio": "wide",
+      "promptSummary": "Stone path through shaded hills toward a distant cross and warm sunrise; gentle, safe, and unhurried; no text.",
+      "alt": "A stone path through shaded hills toward a distant cross at sunrise.",
+      "createdDuringMilestone": "section-art-v0.2.2"
+    },
+    {
+      "id": "section-facts-info-research",
+      "file": "images/generated/sections/facts-info-research.webp",
+      "route": "learn",
+      "component": "FactsInfoReadingPaths.section-art",
+      "purpose": "Dedicated guided-research banner for the Facts & Info reading paths and their Scripture trails.",
+      "aspectRatio": "wide",
+      "promptSummary": "Dawn study table with an open Bible, blank research notebook, reference book, magnifying glass, and a distant path toward warm light; dark negative space on the left; no readable text.",
+      "alt": "A Bible, research notebook, reference book, and magnifying glass beside a dawn-lit path.",
+      "createdDuringMilestone": "facts-info-art-v0.2.4"
+    },
+    {
+      "id": "section-saved-reflections",
+      "file": "images/generated/sections/saved-reflections.webp",
+      "route": "saved",
+      "component": "Saved.section-art",
+      "purpose": "Saved items banner for bookmarked passages, articles, and private notes.",
+      "aspectRatio": "wide",
+      "promptSummary": "Closed journal with bookmark ribbon, blank open page, candle, and olive branch on a quiet desk; no readable text.",
+      "alt": "A bookmarked journal and candle on a quiet study desk.",
+      "createdDuringMilestone": "section-art-v0.2.2"
+    },
+    {
+      "id": "section-source-library",
+      "file": "images/generated/sections/source-library.webp",
+      "route": "library",
+      "component": "Library.section-art",
+      "purpose": "Research library banner representing Strong's, Vine's, facts, and information sources.",
+      "aspectRatio": "wide",
+      "promptSummary": "Organized study desk with an open Bible, unlabeled reference volumes, index cards, magnifying glass, and digital research notes; no readable labels.",
+      "alt": "An organized Bible research desk with reference books and a magnifying glass.",
+      "createdDuringMilestone": "section-art-v0.2.2"
+    },
+    {
+      "id": "section-privacy-settings",
+      "file": "images/generated/sections/privacy-settings.webp",
+      "route": "settings",
+      "component": "Settings.section-art",
+      "purpose": "Privacy and settings banner expressing quiet boundaries and care.",
+      "aspectRatio": "wide",
+      "promptSummary": "Closed notebook in a quiet alcove with a small shield-shaped pool of warm light and a softly closed doorway; no text.",
+      "alt": "A closed notebook in a quiet alcove with a small pool of warm light.",
+      "createdDuringMilestone": "section-art-v0.2.2"
+    },
+    {
+      "id": "section-prayer-journal",
+      "file": "images/generated/sections/prayer-journal.webp",
+      "route": "prayer",
+      "component": "Prayer.section-art",
+      "purpose": "Prayer banner for guided prayers and a private local journal.",
+      "aspectRatio": "wide",
+      "promptSummary": "Quiet prayer corner with a blank journal, candle, wooden cross, and sunrise window light, with dark negative space for overlay text; no readable text.",
+      "alt": "A prayer journal and candle beside a softly lit window.",
+      "createdDuringMilestone": "prayer-tools-v0.2.2"
+    },
+    {
+      "id": "section-faith-next-step",
+      "file": "images/generated/sections/faith-next-step.webp",
+      "route": "faith",
+      "component": "Faith.section-art",
+      "purpose": "New-believer banner for a private first-seven-days path with Jesus.",
+      "aspectRatio": "wide",
+      "promptSummary": "Dawn path opening from cool shadow toward warm hills, with an open Bible and plain journal in the right foreground and a subtle distant cross; open negative space on the left; no readable text.",
+      "alt": "An open Bible and journal beside a path leading toward a distant sunrise and cross.",
+      "createdDuringMilestone": "new-believer-path-v0.2.3"
+    },
+    {
+      "id": "section-study-focus",
+      "file": "images/generated/sections/study-focus.webp",
+      "route": "home",
+      "component": "Home.PersonalStudyFocus",
+      "purpose": "Private study-focus artwork for a locally saved next reading direction.",
+      "aspectRatio": "wide",
+      "promptSummary": "Open Bible and blank journal beside a quiet path leading from soft shadow into warm sunrise light; no logos, watermark, or readable text.",
+      "alt": "An open Bible and journal beside a quiet path leading toward a warm sunrise.",
+      "createdDuringMilestone": "personal-study-focus-v0.2.4"
+    },
+    {
+      "id": "section-reading-plans",
+      "file": "images/generated/sections/reading-plans.webp",
+      "route": "home",
+      "component": "Home.ReadingPlanShelf",
+      "purpose": "Guided reading-plan artwork for chapter-by-chapter paths through John, Luke, Psalms, Romans, and Acts.",
+      "aspectRatio": "wide",
+      "promptSummary": "Open Bible and reading journal on a wooden table facing a sunrise path through the hills; hopeful, contemplative, no readable text.",
+      "alt": "An open Bible and reading journal on a wooden table facing a sunrise path through the hills.",
+      "createdDuringMilestone": "guided-reading-plans-v0.2.5"
+    },
+    {
+      "id": "section-audio-listening",
+      "file": "images/generated/sections/audio-listening.png",
+      "route": "bible",
+      "component": "AudioReaderPanel.section-art",
+      "purpose": "Listening banner for local device read-aloud Bible chapters.",
+      "aspectRatio": "wide",
+      "promptSummary": "Quiet reading corner at sunrise with an open Bible, notebook, and headphones; warm editorial illustration with no readable text.",
+      "alt": "An open Bible and headphones in a quiet reading corner at sunrise.",
+      "createdDuringMilestone": "local-read-aloud-audio-v0.2.6"
+    },
+    {
+      "id": "section-testimonies-scripture",
+      "file": "images/generated/sections/testimonies-scripture.png",
+      "route": "learn",
+      "component": "ScriptureTestimonyShelf.section-art",
+      "purpose": "Scripture testimony banner for stories of people encountering Jesus and being changed.",
+      "aspectRatio": "wide",
+      "promptSummary": "Open Bible and journal beside a path of footprints moving from shade into sunrise; warm editorial illustration with no readable text.",
+      "alt": "An open Bible and journal beside a sunlit path through the hills.",
+      "createdDuringMilestone": "scripture-testimonies-v0.2.7"
+    },
+    {
+      "id": "section-study-packs",
+      "file": "images/generated/sections/study-packs.png",
+      "route": "learn",
+      "component": "StudyPackShelf.section-art",
+      "purpose": "Practical offline study-pack banner combining Bible reading, educational questions, research, prayer, and guided next steps.",
+      "aspectRatio": "wide",
+      "promptSummary": "Warm dawn reading table with open Bible, blank study cards, journal, compass, and a path toward sunrise; dark caption space on the left; no readable text.",
+      "alt": "A stack of study cards, an open Bible, a journal, and a compass beside a path toward sunrise.",
+      "createdDuringMilestone": "offline-study-packs-v0.2.8"
+    },
+    {
+      "id": "section-downloads-study-guides",
+      "file": "images/generated/sections/downloads-study-guides.png",
+      "route": "downloads",
+      "component": "Downloads.section-art",
+      "purpose": "Private Downloads banner for saved, readable, and re-exportable study guides generated in the app.",
+      "aspectRatio": "wide",
+      "promptSummary": "Wide private offline Downloads banner with blank paper guides tied with a simple ribbon, journal, open Bible, dawn path, and dark caption space on the left; no readable text, logos, watermark, faces, phone, or browser UI.",
+      "alt": "A stack of blank study guides, an open Bible, and a journal beside a dawn-lit path.",
+      "createdDuringMilestone": "downloads-center-v0.2.9"
     }
   ]
 }

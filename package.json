@@ -1,6 +1,6 @@
 {
   "name": "from-islam-to-christ",
-  "version": "0.2.1",
+  "version": "0.2.27",
   "private": true,
   "type": "module",
   "description": "A private Bible-centered Electron and React prototype for From Islam to Christ.",
@@ -12,6 +12,8 @@
     "build": "npm run build:data && vite build",
     "build:data": "node scripts/build-data-index.cjs",
     "verify:database": "node scripts/verify-content-database.cjs",
+    "verify:licenses": "node scripts/verify-content-license-manifest.cjs",
+    "verify:art": "node scripts/verify-section-art.cjs",
     "preview": "vite preview --host 127.0.0.1",
     "dist:win": "npm run build && electron-builder --win nsis --publish never",
     "android:sync": "npm run build && npx cap sync android",

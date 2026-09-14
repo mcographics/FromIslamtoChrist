@@ -848,7 +848,8 @@ Add:
 - interlinear
 - word studies
 - advanced search
-- downloadable study packs
+- downloadable study packs (five locally bundled, in-app packs with plain-text guide export, private per-stop checkpoints, and a private Downloads shelf for rereading, re-export, source-pack return, and removal)
+- purpose-led Facts & Info paths with three-section private reading checkpoints, resumable progress, Scripture trails, and source-linked study handoff
 
 ## Phase 3 — Discipleship
 
