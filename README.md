@@ -14,13 +14,13 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 - Branded application identity using `logo/icon.png` for the app icon and `logo/logo.png` for desktop and Android splash screens
 - Mobile-first Android shell built with Capacitor, including a working phone navigation drawer
 - GitHub-linked update checks for Android and Electron; Windows packaged builds use `electron-updater`
-- Source Library indexing all 1,566 files in `Data` by collection, type, size, and review status
-- Safe Electron previews for readable source files plus a generated John 1 runtime sample from the structured KJV JSON
+- A versioned SQLite content database generated from `Data`, cataloguing all 1,566 local assets and carrying the structured John 1 runtime sample
+- Offline Bible content loaded from the SQLite database, with a checked-in JSON fallback for development recovery
 - Electron window configured with context isolation, no Node integration, and a sandboxed renderer
 
 The Bible text and article content are prototype samples. Translation licensing, attribution, content review, and production privacy hardening remain release gates described in `Documentation/plan.md`.
 
-The full `Data` directory remains outside the renderer bundle. The app indexes every local asset and previews selected readable files through a path-validated Electron preload bridge; large and binary files remain catalogued as local source assets. This keeps the prototype fast and avoids treating the presence of a file as permission to redistribute it.
+The full `Data` directory remains outside the renderer bundle. The repeatable build pipeline converts its metadata into `public/data/from-darkness-to-light.db`; the database is the runtime content boundary, while the raw DOCX, lexicon, Hebrew, Greek, Text-Fabric, archive, and other research files remain local conversion inputs. This keeps the prototype fast and avoids treating the presence of a file as permission to redistribute it.
 
 ## Run
 
@@ -33,6 +33,12 @@ The development script starts Vite and the Electron shell together. For a produc
 
 ```powershell
 npm run build
+```
+
+To validate the checked-in SQLite content artifact independently:
+
+```powershell
+npm run verify:database
 ```
 
 For the Android phone build, use a Java 21 toolchain and run:

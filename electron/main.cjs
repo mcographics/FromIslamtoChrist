@@ -4,44 +4,20 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const dataRoot = path.resolve(__dirname, '..', 'Data');
+const projectRoot = path.resolve(__dirname, '..');
 const logoRoot = path.resolve(__dirname, '..', 'logo');
 const appIconPath = path.join(logoRoot, 'icon.png');
-const maxPreviewBytes = 64 * 1024;
+const contentDatabasePath = path.join(projectRoot, isDevelopment ? 'public' : 'dist', 'data', 'from-darkness-to-light.db');
 let mainWindow = null;
 let splashWindow = null;
 let lastUpdateStatus = { status: 'idle' };
-const previewableExtensions = new Set([
-  '', '.ann', '.css', '.csv', '.gitattributes', '.gitignore', '.html', '.ipynb', '.js',
-  '.json', '.key', '.md', '.pl', '.pos', '.py', '.scss', '.sh', '.txt', '.tf', '.xml',
-  '.xhtml', '.yaml', '.yml',
-]);
 
-function resolveDataPath(relativePath) {
-  if (typeof relativePath !== 'string' || relativePath.includes('\0')) return null;
-  const resolved = path.resolve(dataRoot, relativePath);
-  const rootWithSeparator = `${dataRoot}${path.sep}`;
-  if (resolved !== dataRoot && !resolved.toLowerCase().startsWith(rootWithSeparator.toLowerCase())) return null;
-  return resolved;
-}
-
-ipcMain.handle('data:preview', async (_event, relativePath) => {
-  const resolved = resolveDataPath(relativePath);
-  if (!resolved) return { ok: false, message: 'That data path is not available.' };
-
+ipcMain.handle('content:database', async () => {
   try {
-    const stats = await fs.stat(resolved);
-    const extension = path.extname(resolved).toLowerCase();
-    if (!previewableExtensions.has(extension)) {
-      return { ok: true, kind: 'binary', message: 'This asset is catalogued locally but is not rendered as text in the prototype.' };
-    }
-    if (stats.size > maxPreviewBytes) {
-      return { ok: true, kind: 'large', message: `This text asset is ${Math.round(stats.size / 1024)} KB. Preview is limited to 64 KB.` };
-    }
-    const text = await fs.readFile(resolved, 'utf8');
-    return { ok: true, kind: 'text', text, truncated: false };
+    const database = await fs.readFile(contentDatabasePath);
+    return new Uint8Array(database).buffer;
   } catch (error) {
-    return { ok: false, message: `Preview unavailable: ${error.message}` };
+    throw new Error(`Content database unavailable: ${error.message}`);
   }
 });
 

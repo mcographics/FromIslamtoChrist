@@ -1,6 +1,6 @@
 {
   "name": "from-darkness-to-light",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "A private Bible-centered Electron and React prototype for From Darkness to Light.",
@@ -11,6 +11,7 @@
     "dev:electron": "electron .",
     "build": "npm run build:data && vite build",
     "build:data": "node scripts/build-data-index.cjs",
+    "verify:database": "node scripts/verify-content-database.cjs",
     "preview": "vite preview --host 127.0.0.1",
     "dist:win": "npm run build && electron-builder --win nsis --publish never",
     "android:sync": "npm run build && npx cap sync android",
@@ -23,7 +24,8 @@
     "@capacitor/core": "^8.5.2",
     "electron-updater": "^6.8.9",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "sql.js": "^1.14.2"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.2",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import assetCatalog from './data/data-index.json';
 import bibleData from './data/bible-john.json';
+import { loadContentDatabase } from './services/content-database';
 import { APP_VERSION, GITHUB_RELEASES_URL, checkForGitHubUpdate, getUpdatePlatform, openUpdateUrl } from './services/github-updates';
 
 const navigation = [
@@ -108,7 +108,7 @@ const lessons = [
   { id: 7, title: 'Walk in the light', subtitle: 'Keep learning with hope.', status: 'locked', icon: 'sunrise' },
 ];
 
-const verses = bibleData.verses;
+const fallbackVerses = bibleData.verses;
 
 function Icon({ name, size = 20, strokeWidth = 1.8 }) {
   const paths = {
@@ -159,15 +159,13 @@ function readLocal(key, fallback) {
   }
 }
 
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+function readActiveView() {
+  const storedView = readLocal('fdl-active-view', 'home');
+  return navigation.some((item) => item.id === storedView) ? storedView : 'home';
 }
 
 function App() {
-  const [activeView, setActiveView] = useState(() => readLocal('fdl-active-view', 'home'));
+  const [activeView, setActiveView] = useState(readActiveView);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [bookmarks, setBookmarks] = useState(() => readLocal('fdl-bookmarks', ['verse-john-1-1']));
   const [completedLessons, setCompletedLessons] = useState(() => readLocal('fdl-completed-lessons', [1]));
@@ -177,6 +175,7 @@ function App() {
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [updateState, setUpdateState] = useState({ status: 'idle', currentVersion: APP_VERSION });
+  const [contentDatabase, setContentDatabase] = useState({ status: 'loading', sourceAssetCount: 0, contentVersion: APP_VERSION, bibleVerses: [] });
 
   useEffect(() => window.localStorage.setItem('fdl-active-view', JSON.stringify(activeView)), [activeView]);
   useEffect(() => window.localStorage.setItem('fdl-bookmarks', JSON.stringify(bookmarks)), [bookmarks]);
@@ -186,6 +185,17 @@ function App() {
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
   }, [theme]);
+  useEffect(() => {
+    let active = true;
+    loadContentDatabase()
+      .then((snapshot) => {
+        if (active) setContentDatabase(snapshot);
+      })
+      .catch((error) => {
+        if (active) setContentDatabase({ status: 'error', sourceAssetCount: 0, contentVersion: APP_VERSION, bibleVerses: [], errorMessage: error?.message || 'Database unavailable.' });
+      });
+    return () => { active = false; };
+  }, []);
 
   async function checkForUpdates() {
     setUpdateState((current) => ({ ...current, status: 'checking' }));
@@ -215,9 +225,10 @@ function App() {
 
   const currentTitle = useMemo(() => {
     if (selectedArticle) return selectedArticle.title;
-    if (activeView === 'sources') return 'Source Library';
     return navigation.find((item) => item.id === activeView)?.label || 'Home';
   }, [activeView, selectedArticle]);
+
+  const runtimeVerses = contentDatabase.bibleVerses?.length ? contentDatabase.bibleVerses : fallbackVerses;
 
   function navigate(view) {
     setSelectedArticle(null);
@@ -260,7 +271,6 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="settings-link source-link" type="button" onClick={() => navigate('sources')}><Icon name="database" size={17} /> Source library <span>{assetCatalog.totalFiles.toLocaleString()}</span></button>
           <button className="privacy-mini" type="button" onClick={() => { setShowPrivacyNotice(true); navigate('settings'); }}>
             <span className="privacy-mini-icon"><Icon name="lock" size={17} /></span>
             <span><strong>Local only</strong><small>Your progress stays here</small></span>
@@ -289,12 +299,11 @@ function App() {
           ) : (
             <>
               {activeView === 'home' && <Home onNavigate={navigate} onOpenArticle={openArticle} bookmarks={bookmarks} toggleBookmark={toggleBookmark} completedLessons={completedLessons} />}
-              {activeView === 'bible' && <Bible searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} />}
+              {activeView === 'bible' && <Bible verses={runtimeVerses} searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} />}
               {activeView === 'learn' && <Learn articles={articles} onOpenArticle={openArticle} />}
               {activeView === 'journey' && <Journey completedLessons={completedLessons} toggleLesson={toggleLesson} onNavigate={navigate} />}
-              {activeView === 'saved' && <Saved bookmarks={bookmarks} toggleBookmark={toggleBookmark} onOpenArticle={openArticle} navigate={navigate} />}
-              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} />}
-              {activeView === 'sources' && <SourceLibrary />}
+              {activeView === 'saved' && <Saved verses={runtimeVerses} bookmarks={bookmarks} toggleBookmark={toggleBookmark} onOpenArticle={openArticle} navigate={navigate} />}
+              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} contentDatabase={contentDatabase} />}
             </>
           )}
         </div>
@@ -311,7 +320,6 @@ function MobileDrawer({ activeView, selectedArticle, theme, setTheme, onNavigate
         <div className="mobile-drawer-header"><div className="mobile-drawer-brand"><span>From Darkness</span><strong>to Light</strong></div><button className="icon-button" type="button" onClick={onClose} aria-label="Close navigation"><Icon name="close" size={18} /></button></div>
         <nav className="mobile-drawer-nav" aria-label="Mobile navigation menu">
           {navigation.map((item) => <NavButton key={item.id} item={item} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}
-          <button className={`nav-button ${activeView === 'sources' && !selectedArticle ? 'active' : ''}`} type="button" onClick={() => onNavigate('sources')}><Icon name="database" size={19} /><span>Source library</span>{activeView === 'sources' && !selectedArticle && <span className="nav-dot" />}</button>
           <button className={`nav-button ${activeView === 'settings' && !selectedArticle ? 'active' : ''}`} type="button" onClick={() => onNavigate('settings')}><Icon name="shield" size={19} /><span>Privacy & settings</span>{activeView === 'settings' && !selectedArticle && <span className="nav-dot" />}</button>
         </nav>
         <div className="mobile-drawer-footer">
@@ -395,7 +403,6 @@ function Home({ onNavigate, onOpenArticle, bookmarks, toggleBookmark, completedL
         <QuickCard icon="dialogue" tone="blue" title="Ask your questions" text="Clear, respectful answers for a thoughtful journey." onClick={() => onNavigate('learn')} />
         <QuickCard icon="sprout" tone="green" title="Faith basics" text="Understand the foundations of Christian faith." onClick={() => onOpenArticle(articles[3])} />
       </div></section>
-      <button className="data-library-banner" type="button" onClick={() => onNavigate('sources')}><span className="data-library-icon"><Icon name="database" size={22} /></span><span><strong>Explore the source library</strong><small>{assetCatalog.totalFiles.toLocaleString()} local assets across {assetCatalog.groups.length} research collections, indexed without leaving this device.</small></span><span className="data-library-count">{formatBytes(assetCatalog.totalBytes)}<Icon name="arrow" size={15} /></span></button>
     </div>
   );
 }
@@ -404,7 +411,7 @@ function QuickCard({ icon, tone, title, text, onClick }) {
   return <button className="quick-card" type="button" onClick={onClick}><span className={`quick-icon tone-${tone}`}><Icon name={icon} size={21} /></span><span className="quick-card-copy"><strong>{title}</strong><small>{text}</small></span><Icon name="chevron" size={17} /></button>;
 }
 
-function Bible({ searchTerm, setSearchTerm, bookmarks, toggleBookmark }) {
+function Bible({ verses: verseList, searchTerm, setSearchTerm, bookmarks, toggleBookmark }) {
   const searchMatch = searchTerm.trim().toLowerCase() === 'john 1' || searchTerm.trim().toLowerCase() === 'john 1:1';
   return (
     <div className="bible-page page-enter">
@@ -416,7 +423,7 @@ function Bible({ searchTerm, setSearchTerm, bookmarks, toggleBookmark }) {
           <div className="reference-search"><Icon name="search" size={16} /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search a reference, e.g. John 1:1" aria-label="Search Bible reference" />{searchTerm && <button type="button" onClick={() => setSearchTerm('')} aria-label="Clear search"><Icon name="close" size={15} /></button>}</div>
           {searchTerm && <div className={`search-result ${searchMatch ? 'match' : ''}`}>{searchMatch ? 'Showing John 1 — your reference is ready to read.' : 'Try “John 1” or “John 1:1” in this prototype.'}</div>}
           <div className="chapter-heading"><span className="chapter-kicker">The Gospel according to</span><h2>John 1</h2><span className="chapter-subtitle">The Word Became Flesh</span></div>
-          <div className="verse-list">{verses.map((verse) => <div className={`verse-row ${verse.number === 5 ? 'verse-highlight' : ''}`} key={verse.number}><span className="verse-number">{verse.number}</span><p>{verse.text}</p><button className={`verse-save ${bookmarks.includes(`verse-john-1-${verse.number}`) ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(`verse-john-1-${verse.number}`)} aria-label={`Save John 1 verse ${verse.number}`}><Icon name="bookmark" size={16} /></button></div>)}</div>
+          <div className="verse-list">{verseList.map((verse) => <div className={`verse-row ${verse.number === 5 ? 'verse-highlight' : ''}`} key={verse.number}><span className="verse-number">{verse.number}</span><p>{verse.text}</p><button className={`verse-save ${bookmarks.includes(`verse-john-1-${verse.number}`) ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(`verse-john-1-${verse.number}`)} aria-label={`Save John 1 verse ${verse.number}`}><Icon name="bookmark" size={16} /></button></div>)}</div>
           <p className="content-note">Prototype sample text · Translation licensing and attribution review required before release.</p>
         </section>
         <aside className="reader-side-panel"><div className="side-quote"><Icon name="sparkles" size={22} /><p>“The light shines in the darkness.”</p><span>John 1:5</span></div><div className="study-card"><p className="eyebrow">Study tools</p><button type="button" disabled><Icon name="bookmark" size={17} /> Save a passage <span>⌘</span></button><button type="button" disabled><Icon name="sprout" size={17} /> Add a note <span>Later</span></button><button type="button" disabled><Icon name="learn" size={17} /> Compare translations <span>Later</span></button></div></aside>
@@ -447,9 +454,9 @@ function JourneyStep({ lesson, complete, onToggle, onOpen }) {
   return <div className={`journey-step ${complete ? 'complete' : ''} ${lesson.status === 'current' ? 'current' : ''} ${locked ? 'locked' : ''}`}><button className="step-marker" type="button" onClick={locked ? undefined : onToggle} disabled={locked}>{complete ? <Icon name="check" size={16} /> : <Icon name={locked ? 'lock' : lesson.icon} size={16} />}</button><div className="step-copy"><strong>{lesson.title}</strong><span>{lesson.subtitle}</span></div>{lesson.status === 'current' && <button className="step-action" type="button" onClick={onOpen}>Start <Icon name="arrow" size={14} /></button>}{locked && <span className="step-locked">Soon</span>}</div>;
 }
 
-function Saved({ bookmarks, toggleBookmark, onOpenArticle, navigate }) {
+function Saved({ verses: verseList, bookmarks, toggleBookmark, onOpenArticle, navigate }) {
   const savedArticles = articles.filter((article) => bookmarks.includes(`article-${article.id}`));
-  const savedVerses = verses.filter((verse) => bookmarks.includes(`verse-john-1-${verse.number}`) || (verse.number === 1 && bookmarks.includes('verse-john-1-1')));
+  const savedVerses = verseList.filter((verse) => bookmarks.includes(`verse-john-1-${verse.number}`) || (verse.number === 1 && bookmarks.includes('verse-john-1-1')));
   return <div className="saved-page page-enter"><SectionIntro eyebrow="Your library" title="Saved for later." description="Your bookmarks stay on this device in the prototype." /><div className="saved-summary"><div><span className="summary-number">{bookmarks.length}</span><span>saved items</span></div><div><span className="summary-number">{savedArticles.length}</span><span>articles</span></div><div><span className="summary-number">{savedVerses.length}</span><span>passages</span></div></div>{savedArticles.length > 0 && <section className="saved-section"><div className="section-label-row"><div><p className="eyebrow">Articles</p><h2>Keep exploring</h2></div></div><div className="article-grid compact">{savedArticles.map((article) => <ArticleCard key={article.id} article={article} onOpen={() => onOpenArticle(article)} />)}</div></section>}<section className="saved-section"><div className="section-label-row"><div><p className="eyebrow">Bible passages</p><h2>Words to return to</h2></div></div>{savedVerses.length > 0 ? <div className="saved-verse-list">{savedVerses.map((verse) => <div className="saved-verse" key={verse.number}><span>John 1:{verse.number}</span><p>{verse.text}</p><button type="button" onClick={() => toggleBookmark(`verse-john-1-${verse.number}`)} aria-label="Remove saved passage"><Icon name="close" size={15} /></button></div>)}</div> : <EmptyState icon="bookmark" title="Nothing saved yet" text="Bookmark a verse or article and it will appear here." action={<button className="text-button" type="button" onClick={() => navigate('bible')}>Open the Bible <Icon name="arrow" size={15} /></button>} />}</section></div>;
 }
 
@@ -457,54 +464,18 @@ function EmptyState({ icon, title, text, action }) {
   return <div className="empty-state"><span><Icon name={icon} size={24} /></span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
 
-function SourceLibrary() {
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('all');
-  const [visibleCount, setVisibleCount] = useState(120);
-  const [selectedAsset, setSelectedAsset] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const categoryOptions = [
-    { id: 'all', label: 'All assets' },
-    { id: 'bible', label: 'Bible data' },
-    { id: 'documentation', label: 'Documentation' },
-    { id: 'reference', label: 'Reference' },
-    { id: 'tooling', label: 'Tooling' },
-    { id: 'media', label: 'Media' },
-    { id: 'archive', label: 'Archives' },
-  ];
-  const filteredAssets = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return assetCatalog.files.filter((asset) => {
-      const categoryMatches = category === 'all' || asset.category === category;
-      const queryMatches = !normalizedQuery || `${asset.path} ${asset.type} ${asset.group}`.toLowerCase().includes(normalizedQuery);
-      return categoryMatches && queryMatches;
-    });
-  }, [category, query]);
-
-  useEffect(() => {
-    setVisibleCount(120);
-  }, [category, query]);
-
-  async function inspectAsset(asset) {
-    setSelectedAsset(asset);
-    setPreview({ loading: true });
-    if (!window.fromDarkness?.previewDataAsset) {
-      setPreview({ kind: 'unavailable', message: 'The safe asset preview bridge is available when this page is running inside Electron.' });
-      return;
-    }
-    const result = await window.fromDarkness.previewDataAsset(asset.path);
-    setPreview(result);
-  }
-
-  return <div className="sources-page page-enter"><SectionIntro eyebrow="Local source library" title="Every asset has a place." description="The complete Data folder is indexed here by collection, type, size, and review status. Raw assets stay outside the renderer bundle." action={<span className="source-total"><Icon name="database" size={16} /> {assetCatalog.totalFiles.toLocaleString()} assets</span>} /><div className="source-stats">{assetCatalog.groups.map((group) => <div className="source-stat" key={group.name}><span className="source-stat-icon"><Icon name="database" size={16} /></span><span><strong>{group.name}</strong><small>{group.files.toLocaleString()} files · {formatBytes(group.bytes)}</small></span></div>)}</div><div className="source-toolbar"><div className="source-search"><Icon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search every path, type, or collection" aria-label="Search source library" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear source search"><Icon name="close" size={15} /></button>}</div><div className="category-pills source-pills">{categoryOptions.map((option) => <button className={`category-pill ${category === option.id ? 'active' : ''}`} type="button" key={option.id} onClick={() => setCategory(option.id)}>{option.label}</button>)}</div></div><div className="sources-layout"><section className="asset-list-panel card-surface"><div className="asset-list-head"><div><p className="eyebrow">Indexed assets</p><h2>{filteredAssets.length.toLocaleString()} matches</h2></div><span>Showing {Math.min(visibleCount, filteredAssets.length).toLocaleString()}</span></div><div className="asset-list">{filteredAssets.slice(0, visibleCount).map((asset) => <button className={`asset-row ${selectedAsset?.path === asset.path ? 'selected' : ''}`} type="button" key={asset.path} onClick={() => inspectAsset(asset)}><span className={`asset-type asset-type-${asset.category}`}><Icon name={asset.category === 'documentation' ? 'scroll' : asset.category === 'media' ? 'sunrise' : asset.category === 'archive' ? 'database' : 'book'} size={16} /></span><span className="asset-row-copy"><strong>{asset.name}</strong><small>{asset.path}</small></span><span className="asset-row-meta"><strong>{formatBytes(asset.sizeBytes)}</strong><small>{asset.type}</small></span><Icon name="chevron" size={15} /></button>)}</div>{visibleCount < filteredAssets.length && <button className="load-more-button" type="button" onClick={() => setVisibleCount((current) => current + 120)}>Load more assets <Icon name="arrow" size={15} /></button>}{filteredAssets.length === 0 && <EmptyState icon="search" title="No assets found" text="Try a different path, file type, or collection." />}</section><aside className="asset-preview-panel">{selectedAsset ? <div className="asset-preview card-surface"><div className="preview-header"><div><p className="eyebrow">Selected asset</p><h2>{selectedAsset.name}</h2></div><button className="icon-button" type="button" onClick={() => { setSelectedAsset(null); setPreview(null); }} aria-label="Close asset preview"><Icon name="close" size={17} /></button></div><p className="preview-path">{selectedAsset.path}</p><div className="preview-badges"><span>{selectedAsset.type}</span><span>{formatBytes(selectedAsset.sizeBytes)}</span><span className={selectedAsset.reviewStatus === 'source-notice' ? 'notice' : ''}>{selectedAsset.reviewStatus === 'source-notice' ? 'Source notice' : 'Needs review'}</span></div>{preview?.loading && <div className="preview-message">Loading a safe local preview…</div>}{preview && !preview.loading && preview.kind === 'text' && <pre className="preview-code">{preview.text}</pre>}{preview && !preview.loading && preview.kind !== 'text' && <div className="preview-message"><Icon name={preview.kind === 'unavailable' ? 'info' : 'lock'} size={22} /><p>{preview.message}</p></div>}<p className="preview-note">Preview reads only this selected file through the Electron preload bridge. It does not copy the Data directory into the web bundle.</p></div> : <div className="asset-preview-empty"><span><Icon name="database" size={27} /></span><h2>Choose a source</h2><p>Browse all indexed Bible, Hebrew, Greek, Strong’s, lexicon, document, image, archive, and tooling assets.</p></div>}</aside></div></div>;
+function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice, contentDatabase }) {
+  const databaseValue = contentDatabase?.status === 'ready'
+    ? `${contentDatabase.sourceAssetCount.toLocaleString()} sources`
+    : contentDatabase?.status === 'loading' ? 'Loading locally' : 'Sample fallback';
+  const databaseDescription = contentDatabase?.status === 'ready'
+    ? 'Versioned SQLite content database is available offline'
+    : contentDatabase?.errorMessage || 'The bundled sample remains available';
+  return <div className="settings-page page-enter"><SectionIntro eyebrow="Safe & private" title="Settings" description="You are in control of what this app remembers and reveals." /><div className="settings-layout"><section className="settings-main"><div className="discreet-card"><div className="discreet-icon"><Icon name="shield" size={28} /></div><div className="setting-copy"><div className="setting-title-row"><h2>Discreet Mode</h2><Toggle checked={discreetMode} onChange={() => setDiscreetMode(!discreetMode)} /></div><p>Reduces casual discovery by keeping the experience quiet on this device. It cannot guarantee complete privacy.</p><button className="text-button subtle" type="button" onClick={() => setShowPrivacyNotice(true)}>Understand the limits <Icon name="arrow" size={14} /></button></div></div><div className="settings-list"><SettingRow icon="globe" title="Language" value="English" /><div className="setting-row"><span className="setting-row-icon"><Icon name={theme === 'light' ? 'sun' : 'moon'} size={18} /></span><span className="setting-row-copy"><strong>App appearance</strong><small>Choose how the app feels at night</small></span><div className="appearance-toggle"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Icon name="sun" size={15} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Icon name="moon" size={15} /> Dark</button></div></div><SettingRow icon="lock" title="Privacy & security" value="Local only" /><SettingRow icon="database" title="Offline content database" value={databaseValue} description={databaseDescription} /><SettingRow icon="bell" title="Notifications" value="Quiet by default" /><SettingRow icon="info" title="About this prototype" value={`v${APP_VERSION}`} /></div></section><aside className="settings-aside"><div className="not-alone-card"><div className="cross-circle"><Icon name="cross" size={36} /></div><p>You are not alone.<br />There is hope.</p><em>Jesus loves you.</em></div><div className="prototype-note"><Icon name="info" size={17} /><p><strong>Prototype boundary</strong><span>Saved state uses local browser storage. No account, sync, analytics, or remote content is connected.</span></p></div></aside></div>{showPrivacyNotice && <PrivacyNotice onClose={() => setShowPrivacyNotice(false)} />}</div>;
 }
 
-function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice }) {
-  return <div className="settings-page page-enter"><SectionIntro eyebrow="Safe & private" title="Settings" description="You are in control of what this app remembers and reveals." /><div className="settings-layout"><section className="settings-main"><div className="discreet-card"><div className="discreet-icon"><Icon name="shield" size={28} /></div><div className="setting-copy"><div className="setting-title-row"><h2>Discreet Mode</h2><Toggle checked={discreetMode} onChange={() => setDiscreetMode(!discreetMode)} /></div><p>Reduces casual discovery by keeping the experience quiet on this device. It cannot guarantee complete privacy.</p><button className="text-button subtle" type="button" onClick={() => setShowPrivacyNotice(true)}>Understand the limits <Icon name="arrow" size={14} /></button></div></div><div className="settings-list"><SettingRow icon="globe" title="Language" value="English" /><div className="setting-row"><span className="setting-row-icon"><Icon name={theme === 'light' ? 'sun' : 'moon'} size={18} /></span><span className="setting-row-copy"><strong>App appearance</strong><small>Choose how the app feels at night</small></span><div className="appearance-toggle"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Icon name="sun" size={15} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Icon name="moon" size={15} /> Dark</button></div></div><SettingRow icon="lock" title="Privacy & security" value="Local only" /><SettingRow icon="bell" title="Notifications" value="Quiet by default" /><SettingRow icon="info" title="About this prototype" value={`v${APP_VERSION}`} /></div></section><aside className="settings-aside"><div className="not-alone-card"><div className="cross-circle"><Icon name="cross" size={36} /></div><p>You are not alone.<br />There is hope.</p><em>Jesus loves you.</em></div><div className="prototype-note"><Icon name="info" size={17} /><p><strong>Prototype boundary</strong><span>Saved state uses local browser storage. No account, sync, analytics, or remote content is connected.</span></p></div></aside></div>{showPrivacyNotice && <PrivacyNotice onClose={() => setShowPrivacyNotice(false)} />}</div>;
-}
-
-function SettingRow({ icon, title, value }) {
-  return <button className="setting-row" type="button"><span className="setting-row-icon"><Icon name={icon} size={18} /></span><span className="setting-row-copy"><strong>{title}</strong><small>{title === 'Privacy & security' ? 'Bookmarks and progress remain on this device' : 'Available in a future build'}</small></span><span className="setting-value">{value}</span><Icon name="chevron" size={16} /></button>;
+function SettingRow({ icon, title, value, description }) {
+  return <button className="setting-row" type="button"><span className="setting-row-icon"><Icon name={icon} size={18} /></span><span className="setting-row-copy"><strong>{title}</strong><small>{description || (title === 'Privacy & security' ? 'Bookmarks and progress remain on this device' : 'Available in a future build')}</small></span><span className="setting-value">{value}</span><Icon name="chevron" size={16} /></button>;
 }
 
 function Toggle({ checked, onChange }) {

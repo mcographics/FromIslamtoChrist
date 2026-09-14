@@ -1202,6 +1202,8 @@ The first release should use one cleared translation and defer advanced Hebrew/G
 
 Bible content should be converted into a versioned, runtime-oriented format rather than read directly from DOCX, Text-Fabric, compressed MQL, or research files.
 
+For the current React/Vite/Electron/Capacitor implementation, the repeatable conversion pipeline writes a versioned SQLite database at `public/data/from-darkness-to-light.db`. It is an internal runtime content layer, not a user-facing source-file browser. The raw `Data` directory remains a local conversion input; the renderer consumes normalized database rows and the desktop shell does not expose direct file browsing as primary navigation.
+
 Each Bible passage should have stable identifiers and metadata:
 
 ```text

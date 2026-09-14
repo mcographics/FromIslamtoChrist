@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('fromDarkness', {
   runtime: 'electron',
   privacy: 'local-only-prototype',
-  previewDataAsset: (relativePath) => ipcRenderer.invoke('data:preview', relativePath),
+  getContentDatabase: () => ipcRenderer.invoke('content:database'),
   checkForUpdate: () => ipcRenderer.invoke('app:update-check'),
   installUpdate: () => ipcRenderer.invoke('app:update-install'),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
