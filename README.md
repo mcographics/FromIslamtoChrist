@@ -11,6 +11,8 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 - Guided Journey with locally persisted progress
 - Saved items with locally persisted bookmarks
 - Light and dark modes with a persistent header switch and Settings controls
+- Optional local PIN lock with five-minute inactivity locking and a clear privacy boundary
+- One-step deletion of local bookmarks, highlights, notes, journey progress, reader preferences, and PIN state
 - Branded application identity using `logo/icon.png` for the app icon and `logo/logo.png` for desktop and Android splash screens
 - Mobile-first Android shell built with Capacitor, including a working phone navigation drawer
 - GitHub-linked update checks for Android and Electron; Windows packaged builds use `electron-updater`
@@ -49,7 +51,7 @@ For the Android phone build, use a Java 21 toolchain and run:
 npm run android:debug
 ```
 
-The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Android update checks open the matching GitHub release APK for user-approved installation; Android does not permit a third-party APK to silently replace itself. Windows packaged builds check GitHub Releases and install downloaded updates on restart.
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Android update checks open the matching GitHub release APK for user-approved installation; Android does not permit a third-party APK to silently replace itself. Windows packaged builds check GitHub Releases and install downloaded updates on restart. The v0.2.0 privacy lock is a local access gate, not encryption or a guarantee against device-level access.
 
 The public release workflow is tag-driven. Create a `v*` tag after reviewing content and licensing, and GitHub Actions builds the Windows installer and Android test APK. The raw `Data` directory remains local research input and is intentionally excluded from the repository and application bundle until each asset has a completed redistribution review.
 

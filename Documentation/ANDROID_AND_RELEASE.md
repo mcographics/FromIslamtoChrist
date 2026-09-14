@@ -1,6 +1,6 @@
 # Android and release architecture
 
-This document records the first implementation decision for the From Darkness to Light prototype.
+This document records the implementation and release decision for the From Darkness to Light prototype, currently published on the website as From Islam to Christ.
 
 ## Platform decision
 
@@ -13,6 +13,8 @@ This document records the first implementation decision for the From Darkness to
 - App identity: `logo/icon.png` is used for the Windows and Android application icon; `logo/logo.png` is used by the Electron startup window and Android native splash.
 
 Using the shared renderer preserves the same Home, Bible, Learn, article detail, Journey, Saved, Settings, privacy, theme, local-progress, Bible highlight, private-note, copy, font-size, and reading-tone features on both platforms. The Android shell adds native packaging and the phone navigation drawer without introducing an account or backend requirement. The research catalog is an internal SQLite content layer rather than a user-facing file browser.
+
+The v0.2.0 privacy slice adds an optional local PIN gate, automatic locking after five minutes without pointer, touch, or keyboard activity, a manual Lock now action, and an explicit private-data deletion control. The PIN verifier uses a per-install salt and Web Crypto PBKDF2; the PIN gate is still not encryption, and the app explains that operating-system storage, backups, screenshots, device access, and compromised devices remain outside its protection boundary.
 
 ## Update behavior
 
@@ -32,6 +34,6 @@ Before a public content release, complete the license manifest and attribution r
 2. Confirm the Android signing/distribution decision before replacing the debug APK with a production-signed artifact.
 3. Update the version in `package.json` and the Android `versionName`/`versionCode`.
 4. Run `npm run verify:database`, `npm run build`, `npm run dist:win`, and `npm run android:debug` locally.
-5. Create and push a tag such as `v0.1.5`.
+5. Create and push a tag such as `v0.2.0`.
 6. GitHub Actions builds the Windows installer and Android test APK. For a tag, it creates the GitHub release consumed by both update paths.
 7. Verify the release assets and checksums publicly before calling the release available.

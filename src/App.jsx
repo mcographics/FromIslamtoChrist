@@ -165,6 +165,42 @@ function readLocal(key, fallback) {
   }
 }
 
+const PRIVATE_STORAGE_KEYS = [
+  'fdl-active-view',
+  'fdl-bookmarks',
+  'fdl-highlights',
+  'fdl-notes',
+  'fdl-reader-preferences',
+  'fdl-completed-lessons',
+  'fdl-discreet-mode',
+  'fdl-theme',
+  'fdl-bible-location',
+  'fdl-privacy-pin',
+];
+const PRIVACY_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return window.btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = window.atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function hashPrivacyPin(pin, salt) {
+  const key = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(pin), { name: 'PBKDF2' }, false, ['deriveBits']);
+  const bits = await window.crypto.subtle.deriveBits({ name: 'PBKDF2', salt: base64ToBytes(salt), iterations: 120000, hash: 'SHA-256' }, key, 256);
+  return bytesToBase64(new Uint8Array(bits));
+}
+
+async function createPrivacyPin(pin) {
+  const salt = bytesToBase64(window.crypto.getRandomValues(new Uint8Array(16)));
+  return { version: 1, salt, hash: await hashPrivacyPin(pin, salt) };
+}
+
 function readActiveView() {
   const storedView = readLocal('fdl-active-view', 'home');
   return navigation.some((item) => item.id === storedView) ? storedView : 'home';
@@ -180,6 +216,8 @@ function App() {
   const [completedLessons, setCompletedLessons] = useState(() => readLocal('fdl-completed-lessons', [1]));
   const [discreetMode, setDiscreetMode] = useState(() => readLocal('fdl-discreet-mode', true));
   const [theme, setTheme] = useState(() => readLocal('fdl-theme', 'light'));
+  const [privacyPin, setPrivacyPin] = useState(() => readLocal('fdl-privacy-pin', null));
+  const [privacyLocked, setPrivacyLocked] = useState(() => Boolean(readLocal('fdl-privacy-pin', null)));
   const [searchTerm, setSearchTerm] = useState('');
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -200,6 +238,25 @@ function App() {
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
   }, [theme]);
+  useEffect(() => {
+    if (!privacyPin || privacyLocked) return undefined;
+    let timer;
+    const armLockTimer = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        setPrivacyLocked(true);
+        setSelectedArticle(null);
+        setMobileMenuOpen(false);
+      }, PRIVACY_IDLE_TIMEOUT_MS);
+    };
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart'];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, armLockTimer, { passive: true }));
+    armLockTimer();
+    return () => {
+      window.clearTimeout(timer);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, armLockTimer));
+    };
+  }, [privacyPin, privacyLocked]);
   useEffect(() => {
     let active = true;
     loadContentDatabase()
@@ -308,12 +365,67 @@ function App() {
     setMobileMenuOpen(false);
   }
 
+  async function enablePrivacyLock(pin) {
+    try {
+      const credential = await createPrivacyPin(pin);
+      window.localStorage.setItem('fdl-privacy-pin', JSON.stringify(credential));
+      setPrivacyPin(credential);
+      setPrivacyLocked(false);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: error?.message || 'This device could not create a local PIN.' };
+    }
+  }
+
+  function disablePrivacyLock() {
+    window.localStorage.removeItem('fdl-privacy-pin');
+    setPrivacyPin(null);
+    setPrivacyLocked(false);
+  }
+
+  function lockApp() {
+    setPrivacyLocked(true);
+    setSelectedArticle(null);
+    setMobileMenuOpen(false);
+  }
+
+  async function unlockPrivacyLock(pin) {
+    if (!privacyPin?.salt || !privacyPin?.hash) return false;
+    try {
+      return (await hashPrivacyPin(pin, privacyPin.salt)) === privacyPin.hash;
+    } catch {
+      return false;
+    }
+  }
+
+  function deletePrivateData() {
+    PRIVATE_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+    setActiveView('home');
+    setSelectedArticle(null);
+    setBookmarks(['verse-john-1-1']);
+    setHighlights([]);
+    setNotes({});
+    setReaderPreferences({ fontScale: 1, tone: 'default' });
+    setCompletedLessons([1]);
+    setDiscreetMode(true);
+    setTheme('light');
+    setSearchTerm('');
+    setMobileMenuOpen(false);
+    setBibleLocation({ bookId: 'JHN', chapter: 1 });
+    setPrivacyPin(null);
+    setPrivacyLocked(false);
+  }
+
   async function handleUpdateAction() {
     if (updateState.status === 'downloaded' && window.fromDarkness?.installUpdate) {
       await window.fromDarkness.installUpdate();
       return;
     }
     await openUpdateUrl(updateState.downloadUrl || updateState.notesUrl || GITHUB_RELEASES_URL);
+  }
+
+  if (privacyPin && privacyLocked) {
+    return <div className={`app-shell theme-${theme}`}><PrivacyLockScreen onUnlock={async (pin) => { const unlocked = await unlockPrivacyLock(pin); if (unlocked) setPrivacyLocked(false); return unlocked; }} /></div>;
   }
 
   return (
@@ -361,7 +473,7 @@ function App() {
               {activeView === 'learn' && <Learn articles={articles} onOpenArticle={openArticle} />}
               {activeView === 'journey' && <Journey completedLessons={completedLessons} toggleLesson={toggleLesson} onNavigate={navigate} />}
               {activeView === 'saved' && <Saved verses={runtimeVerses} bookmarks={bookmarks} toggleBookmark={toggleBookmark} onOpenArticle={openArticle} navigate={navigate} />}
-              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} contentDatabase={contentDatabase} />}
+              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} contentDatabase={contentDatabase} privacyPinEnabled={Boolean(privacyPin)} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onLockApp={lockApp} onDeletePrivateData={deletePrivateData} />}
             </>
           )}
         </div>
@@ -599,14 +711,106 @@ function EmptyState({ icon, title, text, action }) {
   return <div className="empty-state"><span><Icon name={icon} size={24} /></span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
 
-function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice, contentDatabase }) {
+function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice, contentDatabase, privacyPinEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onLockApp, onDeletePrivateData }) {
   const databaseValue = contentDatabase?.status === 'ready'
     ? `${contentDatabase.sourceAssetCount.toLocaleString()} sources · ${contentDatabase.bibleBookCount || 0} books`
     : contentDatabase?.status === 'loading' ? 'Loading locally' : 'Sample fallback';
   const databaseDescription = contentDatabase?.status === 'ready'
     ? 'Versioned SQLite content database is available offline'
     : contentDatabase?.errorMessage || 'The bundled sample remains available';
-  return <div className="settings-page page-enter"><SectionIntro eyebrow="Safe & private" title="Settings" description="You are in control of what this app remembers and reveals." /><div className="settings-layout"><section className="settings-main"><div className="discreet-card"><div className="discreet-icon"><Icon name="shield" size={28} /></div><div className="setting-copy"><div className="setting-title-row"><h2>Discreet Mode</h2><Toggle checked={discreetMode} onChange={() => setDiscreetMode(!discreetMode)} /></div><p>Reduces casual discovery by keeping the experience quiet on this device. It cannot guarantee complete privacy.</p><button className="text-button subtle" type="button" onClick={() => setShowPrivacyNotice(true)}>Understand the limits <Icon name="arrow" size={14} /></button></div></div><div className="settings-list"><SettingRow icon="globe" title="Language" value="English" /><div className="setting-row"><span className="setting-row-icon"><Icon name={theme === 'light' ? 'sun' : 'moon'} size={18} /></span><span className="setting-row-copy"><strong>App appearance</strong><small>Choose how the app feels at night</small></span><div className="appearance-toggle"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Icon name="sun" size={15} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Icon name="moon" size={15} /> Dark</button></div></div><SettingRow icon="lock" title="Privacy & security" value="Local only" /><SettingRow icon="database" title="Offline content database" value={databaseValue} description={databaseDescription} /><SettingRow icon="bell" title="Notifications" value="Quiet by default" /><SettingRow icon="info" title="About this prototype" value={`v${APP_VERSION}`} /></div></section><aside className="settings-aside"><div className="not-alone-card"><div className="cross-circle"><Icon name="cross" size={36} /></div><p>You are not alone.<br />There is hope.</p><em>Jesus loves you.</em></div><div className="prototype-note"><Icon name="info" size={17} /><p><strong>Prototype boundary</strong><span>Saved state uses local browser storage. No account, sync, analytics, or remote content is connected.</span></p></div></aside></div>{showPrivacyNotice && <PrivacyNotice onClose={() => setShowPrivacyNotice(false)} />}</div>;
+  return (
+    <div className="settings-page page-enter">
+      <SectionIntro eyebrow="Safe & private" title="Settings" description="You are in control of what this app remembers and reveals." />
+      <div className="settings-layout">
+        <section className="settings-main">
+          <div className="discreet-card">
+            <div className="discreet-icon"><Icon name="shield" size={28} /></div>
+            <div className="setting-copy">
+              <div className="setting-title-row"><h2>Discreet Mode</h2><Toggle checked={discreetMode} onChange={() => setDiscreetMode(!discreetMode)} /></div>
+              <p>Reduces casual discovery by keeping the experience quiet on this device. It cannot guarantee complete privacy.</p>
+              <button className="text-button subtle" type="button" onClick={() => setShowPrivacyNotice(true)}>Understand the limits <Icon name="arrow" size={14} /></button>
+            </div>
+          </div>
+          <div className="settings-list">
+            <SettingRow icon="globe" title="Language" value="English" />
+            <div className="setting-row">
+              <span className="setting-row-icon"><Icon name={theme === 'light' ? 'sun' : 'moon'} size={18} /></span>
+              <span className="setting-row-copy"><strong>App appearance</strong><small>Choose how the app feels at night</small></span>
+              <div className="appearance-toggle"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Icon name="sun" size={15} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Icon name="moon" size={15} /> Dark</button></div>
+            </div>
+            <SettingRow icon="lock" title="Privacy & security" value="Local only" />
+            <SettingRow icon="database" title="Offline content database" value={databaseValue} description={databaseDescription} />
+            <SettingRow icon="bell" title="Notifications" value="Quiet by default" />
+            <SettingRow icon="info" title="About this prototype" value={`v${APP_VERSION}`} />
+          </div>
+          <PrivacyLockSettings enabled={privacyPinEnabled} onEnable={onEnablePrivacyLock} onDisable={onDisablePrivacyLock} onLock={onLockApp} />
+          <PrivateDataSettings onDelete={onDeletePrivateData} />
+        </section>
+        <aside className="settings-aside">
+          <div className="not-alone-card"><div className="cross-circle"><Icon name="cross" size={36} /></div><p>You are not alone.<br />There is hope.</p><em>Jesus loves you.</em></div>
+          <div className="prototype-note"><Icon name="info" size={17} /><p><strong>Prototype boundary</strong><span>Saved state uses local browser storage. No account, sync, analytics, or remote content is connected.</span></p></div>
+        </aside>
+      </div>
+      {showPrivacyNotice && <PrivacyNotice onClose={() => setShowPrivacyNotice(false)} />}
+    </div>
+  );
+}
+
+function PrivacyLockSettings({ enabled, onEnable, onDisable, onLock }) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [message, setMessage] = useState('');
+
+  function closeEditor() {
+    setEditorOpen(false);
+    setPin('');
+    setConfirmation('');
+    setMessage('');
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!/^\d{4,8}$/.test(pin)) {
+      setMessage('Use a PIN with 4 to 8 digits.');
+      return;
+    }
+    if (pin !== confirmation) {
+      setMessage('The PINs do not match.');
+      return;
+    }
+    const result = await onEnable(pin);
+    if (!result?.ok) {
+      setMessage(result?.message || 'The local PIN could not be created.');
+      return;
+    }
+    closeEditor();
+  }
+
+  return <section className="privacy-control-card card-surface" aria-labelledby="privacy-lock-heading">
+    <div className="privacy-control-heading"><div><p className="eyebrow">Local access</p><h2 id="privacy-lock-heading">PIN lock</h2></div><span className={`privacy-status ${enabled ? 'enabled' : ''}`}>{enabled ? 'Enabled' : 'Not set'}</span></div>
+    <p className="privacy-control-description">A local PIN hides the app after launch and after five minutes without activity. It is an access gate, not encryption, and it cannot protect a compromised device or operating-system storage.</p>
+    <div className="privacy-control-actions">
+      {enabled && <button className="secondary-button" type="button" onClick={onLock}><Icon name="lock" size={15} /> Lock now</button>}
+      <button className="text-button" type="button" onClick={() => { setEditorOpen(true); setMessage(''); }}>{enabled ? 'Change PIN' : 'Set a local PIN'} <Icon name="arrow" size={14} /></button>
+      {enabled && <button className="text-button danger-button" type="button" onClick={onDisable}>Remove PIN</button>}
+    </div>
+    {editorOpen && <form className="privacy-control-form" onSubmit={submit}>
+      <label>New PIN<input type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{4,8}" maxLength="8" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} autoFocus /></label>
+      <label>Confirm PIN<input type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{4,8}" maxLength="8" value={confirmation} onChange={(event) => setConfirmation(event.target.value.replace(/\D/g, ''))} /></label>
+      {message && <p className="privacy-form-message" role="alert">{message}</p>}
+      <div className="privacy-control-actions"><button className="primary-button" type="submit">Save PIN <Icon name="check" size={15} /></button><button className="text-button" type="button" onClick={closeEditor}>Cancel</button></div>
+    </form>}
+  </section>;
+}
+
+function PrivateDataSettings({ onDelete }) {
+  const [confirming, setConfirming] = useState(false);
+  return <section className="data-control-card card-surface" aria-labelledby="data-control-heading">
+    <div className="privacy-control-heading"><div><p className="eyebrow">Private state</p><h2 id="data-control-heading">Delete local data</h2></div><Icon name="database" size={21} /></div>
+    <p className="privacy-control-description">Remove bookmarks, highlights, notes, journey progress, reading preferences, the saved Bible location, and the local PIN from this device. The read-only content database is not deleted.</p>
+    {!confirming ? <button className="text-button danger-button" type="button" onClick={() => setConfirming(true)}>Delete private data <Icon name="close" size={14} /></button> : <div className="delete-confirmation" role="alert"><strong>This cannot be undone.</strong><span>Reset the private state on this device?</span><div className="privacy-control-actions"><button className="danger-solid-button" type="button" onClick={() => { onDelete(); setConfirming(false); }}>Delete it</button><button className="text-button" type="button" onClick={() => setConfirming(false)}>Cancel</button></div></div>}
+  </section>;
 }
 
 function SettingRow({ icon, title, value, description }) {
@@ -617,8 +821,34 @@ function Toggle({ checked, onChange }) {
   return <button className={`toggle ${checked ? 'on' : ''}`} type="button" role="switch" aria-checked={checked} onClick={onChange}><span /></button>;
 }
 
+function PrivacyLockScreen({ onUnlock }) {
+  const [pin, setPin] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!pin) {
+      setMessage('Enter your PIN to continue.');
+      return;
+    }
+    setBusy(true);
+    const unlocked = await onUnlock(pin);
+    setBusy(false);
+    if (unlocked) {
+      setPin('');
+      setMessage('');
+    } else {
+      setPin('');
+      setMessage('That PIN did not unlock this app.');
+    }
+  }
+
+  return <main className="privacy-lock-screen" aria-labelledby="privacy-lock-screen-title"><section className="privacy-lock-card"><div className="lock-screen-mark"><div className="brand-symbol"><Icon name="cross" size={25} strokeWidth={1.7} /></div><div className="brand-copy"><span>From Darkness</span><strong>to Light</strong></div></div><div className="lock-screen-icon"><Icon name="lock" size={27} /></div><p className="eyebrow">Private on this device</p><h1 id="privacy-lock-screen-title">Enter your PIN.</h1><p className="lock-screen-description">This app is locked after inactivity. Your local PIN reduces casual access to saved study state; it does not replace your device security.</p><form className="lock-screen-form" onSubmit={submit}><label htmlFor="privacy-pin-entry">Local PIN</label><input id="privacy-pin-entry" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,8}" maxLength="8" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} autoFocus /><button className="primary-button" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Unlock'} <Icon name="arrow" size={16} /></button>{message && <p className="privacy-form-message" role="alert">{message}</p>}</form><p className="lock-screen-limit"><strong>Privacy limit:</strong> someone with access to this device or its storage may still be able to access application data.</p></section></main>;
+}
+
 function PrivacyNotice({ onClose }) {
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-title"><button className="modal-close" type="button" onClick={onClose} aria-label="Close privacy notice"><Icon name="close" size={18} /></button><div className="modal-icon"><Icon name="shield" size={24} /></div><p className="eyebrow">A clear promise</p><h2 id="privacy-title">What Discreet Mode can do</h2><p>It keeps this prototype local, quiet, and free from accounts or analytics. It can reduce casual discovery on the device.</p><p>It cannot erase every system record or protect you from someone who has your device access, device PIN, backups, screenshots, or a compromised device.</p><button className="primary-button" type="button" onClick={onClose}>I understand <Icon name="check" size={16} /></button></section></div>;
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-title"><button className="modal-close" type="button" onClick={onClose} aria-label="Close privacy notice"><Icon name="close" size={18} /></button><div className="modal-icon"><Icon name="shield" size={24} /></div><p className="eyebrow">A clear promise</p><h2 id="privacy-title">What Discreet Mode can do</h2><p>It keeps this prototype local, quiet, and free from accounts or analytics. It can reduce casual discovery on the device.</p><p>A local PIN can hide the app after launch and inactivity, but it is an access gate rather than encryption.</p><p>It cannot erase every system record or protect you from someone who has your device access, device PIN, backups, screenshots, or a compromised device.</p><button className="primary-button" type="button" onClick={onClose}>I understand <Icon name="check" size={16} /></button></section></div>;
 }
 
 export default App;

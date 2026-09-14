@@ -400,6 +400,50 @@ button:disabled { cursor: not-allowed; }
 .theme-dark .empty-state { background: rgba(255, 255, 255, .035); }
 .theme-dark .modal-icon { color: #8de0b0; background: rgba(58, 168, 117, .18); }
 
+/* Local privacy controls */
+.privacy-control-card, .data-control-card { display: grid; gap: 14px; padding: 22px; }
+.privacy-control-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.privacy-control-heading .eyebrow { margin-bottom: 6px; }
+.privacy-control-heading h2 { margin: 0; color: var(--ink); font: 500 22px/1.05 Georgia, serif; }
+.privacy-control-heading > .icon { color: var(--muted); }
+.privacy-control-description { max-width: 650px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.privacy-status { padding: 6px 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 14px; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.privacy-status.enabled { color: var(--support-ink); border-color: rgba(58, 168, 117, .3); background: var(--support-bg); }
+.privacy-control-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 13px; color: var(--ink); border: 1px solid var(--line); border-radius: 20px; background: var(--paper-deep); font-size: 10px; font-weight: 800; }
+.secondary-button:hover { border-color: rgba(33, 151, 209, .4); background: var(--paper); }
+.danger-button { color: #b25751; }
+.danger-button:hover { color: #923d38; }
+.privacy-control-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.privacy-control-form label, .lock-screen-form label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 800; }
+.privacy-control-form input, .lock-screen-form input { width: 100%; min-height: 42px; padding: 0 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 11px; outline: none; background: var(--input-surface); font-size: 16px; letter-spacing: .18em; }
+.privacy-control-form input:focus, .lock-screen-form input:focus { border-color: rgba(33, 151, 209, .65); box-shadow: 0 0 0 3px rgba(33, 151, 209, .12); }
+.privacy-control-form .privacy-control-actions { grid-column: 1 / -1; }
+.privacy-form-message { grid-column: 1 / -1; margin: 0; color: #b25751; font-size: 10px; line-height: 1.45; }
+.data-control-card { border-color: rgba(180, 87, 77, .22); }
+.data-control-card .privacy-control-heading > .icon { color: #b25751; }
+.delete-confirmation { display: grid; gap: 5px; padding: 13px; border: 1px solid rgba(180, 87, 77, .25); border-radius: 12px; background: rgba(180, 87, 77, .07); }
+.delete-confirmation strong { color: #a34a44; font-size: 11px; }
+.delete-confirmation > span { color: var(--muted); font-size: 10px; }
+.danger-solid-button { min-height: 36px; padding: 0 13px; color: #fff; border-radius: 19px; background: #b25751; font-size: 10px; font-weight: 800; }
+.danger-solid-button:hover { background: #963f3a; }
+
+/* PIN lock screen */
+.privacy-lock-screen { display: grid; place-items: center; width: 100%; min-height: 100vh; padding: 24px; background: radial-gradient(circle at 50% 0, rgba(232, 189, 112, .18), transparent 42%), var(--page); }
+.privacy-lock-card { width: min(430px, 100%); padding: 32px; border: 1px solid var(--line); border-radius: 22px; background: var(--card); box-shadow: 0 28px 70px rgba(22, 43, 54, .14); }
+.lock-screen-mark { display: flex; align-items: center; gap: 12px; margin-bottom: 31px; }
+.lock-screen-mark .brand-symbol { color: var(--gold-deep); }
+.lock-screen-mark .brand-copy { color: var(--muted); }
+.lock-screen-mark .brand-copy strong { color: var(--ink); }
+.lock-screen-icon { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 20px; color: var(--support-ink); border: 1px solid rgba(58, 168, 117, .3); border-radius: 17px; background: var(--support-bg); }
+.privacy-lock-card h1 { margin: 0 0 12px; color: var(--ink); font: 500 clamp(32px, 7vw, 46px)/1 Georgia, serif; letter-spacing: -.045em; }
+.lock-screen-description { margin: 0 0 23px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.lock-screen-form { display: grid; gap: 9px; }
+.lock-screen-form .primary-button { margin-top: 8px; }
+.lock-screen-form .privacy-form-message { margin-top: 3px; }
+.lock-screen-limit { margin: 24px 0 0; padding-top: 15px; color: var(--muted); border-top: 1px solid var(--line); font-size: 10px; line-height: 1.55; }
+.lock-screen-limit strong { color: var(--ink); }
+
 /* Modal */
 .modal-backdrop { position: fixed; z-index: 5; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(8, 21, 30, .62); backdrop-filter: blur(5px); }
 .privacy-modal { position: relative; width: min(440px, 100%); padding: 32px; border-radius: 19px; background: var(--paper); box-shadow: 0 28px 65px rgba(0,0,0,.25); }
@@ -461,6 +505,10 @@ button:disabled { cursor: not-allowed; }
   .continue-card, .verse-card { padding: 19px; }
   .quick-card { padding: 14px; }
   .reader-panel { padding: 20px 16px 24px; border-radius: 16px; }
+  .privacy-control-card, .data-control-card { padding: 18px; }
+  .privacy-control-form { grid-template-columns: 1fr; }
+  .privacy-control-form .privacy-control-actions { grid-column: auto; }
+  .privacy-lock-card { padding: 25px 21px; border-radius: 19px; }
   .reader-toolbar { align-items: flex-end; }
   .reader-tabs { gap: 15px; }
   .translation-pill { max-width: 90px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
