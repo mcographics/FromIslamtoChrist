@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.2.0';
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.2.1';
 export const GITHUB_OWNER = import.meta.env.VITE_GITHUB_OWNER || 'mcographics';
 export const GITHUB_REPOSITORY = import.meta.env.VITE_GITHUB_REPO || 'FromIslamtoChrist';
 export const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPOSITORY}/releases`;

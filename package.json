@@ -1,6 +1,6 @@
 {
   "name": "from-darkness-to-light",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "A private Bible-centered Electron and React prototype for From Darkness to Light.",

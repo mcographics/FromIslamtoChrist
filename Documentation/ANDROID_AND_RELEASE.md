@@ -16,6 +16,8 @@ Using the shared renderer preserves the same Home, Bible, Learn, article detail,
 
 The v0.2.0 privacy slice adds an optional local PIN gate, automatic locking after five minutes without pointer, touch, or keyboard activity, a manual Lock now action, and an explicit private-data deletion control. The PIN verifier uses a per-install salt and Web Crypto PBKDF2; the PIN gate is still not encryption, and the app explains that operating-system storage, backups, screenshots, device access, and compromised devices remain outside its protection boundary.
 
+The v0.2.1 patch corrects the phone layout boundary in the shared renderer. The Android viewport now constrains the app shell and main content, wraps the reader controls, and replaces the fixed-width Bible selectors with a four-column mobile grid so the phone does not expose unintended horizontal page panning.
+
 ## Update behavior
 
 The Windows application uses `electron-updater` and the GitHub Releases provider. Packaged builds check the latest release on startup, download an available Windows installer update, and offer restart-to-install. Development runs intentionally report that update checks require a packaged build.
@@ -34,6 +36,6 @@ Before a public content release, complete the license manifest and attribution r
 2. Confirm the Android signing/distribution decision before replacing the debug APK with a production-signed artifact.
 3. Update the version in `package.json` and the Android `versionName`/`versionCode`.
 4. Run `npm run verify:database`, `npm run build`, `npm run dist:win`, and `npm run android:debug` locally.
-5. Create and push a tag such as `v0.2.0`.
+5. Create and push a tag such as `v0.2.1`.
 6. GitHub Actions builds the Windows installer and Android test APK. For a tag, it creates the GitHub release consumed by both update paths.
 7. Verify the release assets and checksums publicly before calling the release available.
