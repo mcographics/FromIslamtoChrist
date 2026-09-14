@@ -5,8 +5,8 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 ## Current prototype slice
 
 - Home dashboard with the dawn-to-light visual direction
-- Bible reader sample for John 1
-- Local reference search for `John 1` and `John 1:1`
+- Bible reader with the full 66-book / 31,102-verse KJV corpus currently available in `Data`
+- Local book/chapter navigation and reference search for passages such as `John 1` and `John 1:1`
 - Learn and article detail views
 - Guided Journey with locally persisted progress
 - Saved items with locally persisted bookmarks
@@ -16,8 +16,8 @@ Electron + React + Vite prototype based on `Documentation/plan.md` and `Concept/
 - GitHub-linked update checks for Android and Electron; Windows packaged builds use `electron-updater`
 - Bible study tools for local highlights, private notes, copy, font sizing, and Paper/Sepia/Low-light reading tones
 - Learn screen search and topic filtering with local empty states
-- A versioned SQLite content database generated from `Data`, cataloguing all 1,566 local assets and carrying the structured John 1 runtime sample
-- Offline Bible content loaded from the SQLite database, with a checked-in JSON fallback for development recovery
+- A versioned SQLite content database generated from `Data`, cataloguing all 1,566 local assets and carrying the structured Bible corpus
+- Offline Bible content loaded chapter-by-chapter from the SQLite database, with a checked-in John 1 JSON fallback for development recovery
 - Electron window configured with context isolation, no Node integration, and a sandboxed renderer
 
 The Bible text and article content are prototype samples. Translation licensing, attribution, content review, and production privacy hardening remain release gates described in `Documentation/plan.md`.

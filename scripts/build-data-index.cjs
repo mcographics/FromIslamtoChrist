@@ -8,9 +8,11 @@ const dataRoot = path.join(projectRoot, 'Data');
 const outputRoot = path.join(projectRoot, 'public', 'data');
 const fallbackRoot = path.join(projectRoot, 'src', 'data');
 const databasePath = path.join(outputRoot, 'from-darkness-to-light.db');
-const bibleSourcePath = path.join(dataRoot, 'strongs', 'kjv-HG num', 'Jhn.json');
+const bibleRoot = path.join(dataRoot, 'strongs', 'kjv-HG num');
+const bibleBooksPath = path.join(bibleRoot, 'books.json');
+const bibleChapterCountPath = path.join(bibleRoot, 'chapter_count.json');
 const bibleOutputPath = path.join(fallbackRoot, 'bible-john.json');
-const contentVersion = process.env.npm_package_version || '0.1.4';
+const contentVersion = process.env.npm_package_version || '0.1.5';
 
 const categories = {
   documentation: new Set(['.md', '.txt', '.key', '.gitattributes', '.gitignore']),
@@ -60,52 +62,186 @@ function displayType(category, extension) {
 
 function cleanBibleText(value) {
   return value
-    .replace(/\[[A-Z]\d+\]/g, '')
+    .replace(/\[(?:[A-Z]\d+|fn)\]/gi, '')
     .replace(/<\/?em>/g, '')
     .replace(/\s+([,.;:!?])/g, '$1')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
-async function buildBibleSample() {
-  const source = JSON.parse(await fsp.readFile(bibleSourcePath, 'utf8'));
-  const chapter = source.Jhn['Jhn|1'];
-  const verses = Object.entries(chapter).map(([reference, translations]) => {
-    const number = Number(reference.split('|').at(-1));
-    const rawEnglish = translations.en || '';
-    return {
-      number,
-      reference: `John 1:${number}`,
-      text: cleanBibleText(rawEnglish),
-      strongs: [...rawEnglish.matchAll(/\[([A-Z]\d+)\]/g)].map((match) => match[1]),
-      translations: {
-        en: cleanBibleText(translations.en || ''),
-        bg: translations.bg || null,
-        ch: translations.ch || null,
-        sp: translations.sp || null,
-      },
-    };
-  });
+function repairLooseJson(raw) {
+  let output = '';
+  let inString = false;
+  let escaped = false;
 
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+    if (!inString) {
+      output += character;
+      if (character === '"') inString = true;
+      continue;
+    }
+
+    if (escaped) {
+      output += character;
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && raw[index + 1] === '\\' && raw[index + 2] === '"') {
+      output += '\\"';
+      index += 2;
+      continue;
+    }
+    if (character === '\\') {
+      output += character;
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      const remainder = raw.slice(index + 1);
+      const nextNonWhitespace = remainder.match(/\S/)?.[0];
+      const nextAfterComma = remainder.match(/^\s*,\s*(\S)/)?.[1];
+      const closingQuote = nextNonWhitespace === undefined
+        || ':}]'.includes(nextNonWhitespace)
+        || (nextNonWhitespace === ',' && (nextAfterComma === undefined || '"}]'.includes(nextAfterComma)));
+      if (closingQuote) {
+        output += character;
+        inString = false;
+      } else {
+        output += '\\"';
+      }
+      continue;
+    }
+    output += character;
+  }
+  return output;
+}
+
+function firstJsonValue(raw) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let started = false;
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
+    if (character === '{' || character === '[') {
+      started = true;
+      depth += 1;
+    } else if (character === '}' || character === ']') {
+      depth -= 1;
+      if (started && depth === 0) return raw.slice(0, index + 1);
+    }
+  }
+  return raw;
+}
+
+function parseLooseJson(raw, sourceLabel) {
+  try {
+    return JSON.parse(raw);
+  } catch (initialError) {
+    const repaired = repairLooseJson(raw);
+    try {
+      return JSON.parse(repaired);
+    } catch {
+      try {
+        return JSON.parse(firstJsonValue(repaired));
+      } catch {
+        throw new Error(`Could not parse ${sourceLabel}: ${initialError.message}`);
+      }
+    }
+  }
+}
+
+function bibleVerseFromRow(book, reference, translations) {
+  const rawEnglish = translations.en || '';
+  const number = Number(reference.split('|').at(-1));
+  return {
+    number,
+    reference: `${book.name} ${book.chapter}:${number}`,
+    text: cleanBibleText(rawEnglish),
+    strongs: [...rawEnglish.matchAll(/\[([A-Z]\d+)\]/g)].map((match) => match[1]),
+    translations: {
+      en: cleanBibleText(translations.en || ''),
+      bg: translations.bg || null,
+      ch: translations.ch || null,
+      sp: translations.sp || null,
+    },
+  };
+}
+
+async function buildBibleCorpus() {
+  const definitions = parseLooseJson(await fsp.readFile(bibleBooksPath, 'utf8'), 'books.json').books.map((entry, index) => {
+    const [name, abbreviation] = Object.entries(entry)[0];
+    return { id: abbreviation.toUpperCase(), name, abbreviation, order: index + 1 };
+  });
+  const chapterCounts = parseLooseJson(await fsp.readFile(bibleChapterCountPath, 'utf8'), 'chapter_count.json');
+  const books = [];
+  const verses = [];
+  const verseKeys = new Set();
+  const duplicateVerses = [];
+
+  for (const definition of definitions) {
+    const sourcePath = path.join(bibleRoot, `${definition.abbreviation}.json`);
+    const source = parseLooseJson(await fsp.readFile(sourcePath, 'utf8'), `${definition.abbreviation}.json`);
+    const sourceRoot = Object.keys(source)[0];
+    const chapters = source[sourceRoot] || {};
+    const book = {
+      ...definition,
+      chapterCount: Number(chapterCounts[definition.abbreviation] || 0),
+      source: path.relative(projectRoot, sourcePath).split(path.sep).join('/'),
+    };
+    books.push(book);
+
+    for (const [chapterReference, chapterRows] of Object.entries(chapters)) {
+      const chapter = Number(chapterReference.split('|').at(-1));
+      for (const [reference, translations] of Object.entries(chapterRows)) {
+        if (Number(reference.split('|')[1]) !== chapter) continue;
+        const verse = bibleVerseFromRow({ ...book, chapter }, reference, translations);
+        if (!verse.text) continue;
+        const verseKey = `${book.id}|${chapter}|${verse.number}`;
+        if (verseKeys.has(verseKey)) {
+          duplicateVerses.push(verseKey);
+          continue;
+        }
+        verseKeys.add(verseKey);
+        verses.push({ ...verse, bookId: book.id, bookOrder: book.order, chapter, source: book.source });
+      }
+    }
+  }
+
+  books.sort((left, right) => left.order - right.order);
+  verses.sort((left, right) => left.bookOrder - right.bookOrder || left.chapter - right.chapter || left.number - right.number);
+  const johnOne = verses.filter((verse) => verse.bookId === 'JHN' && verse.chapter === 1);
   const sample = {
     translation: 'KJV',
     source: 'Data/strongs/kjv-HG num/Jhn.json',
     licenseStatus: 'needs-review',
     book: 'John',
     chapter: 1,
-    verses,
+    verses: johnOne.map(({ number, reference, text, strongs, translations }) => ({ number, reference, text, strongs, translations })),
   };
   await fsp.mkdir(fallbackRoot, { recursive: true });
   await fsp.writeFile(bibleOutputPath, `${JSON.stringify(sample, null, 2)}\n`);
-  return sample;
+  return { translation: 'KJV', licenseStatus: 'needs-review', books, verses, sample, duplicateVerses };
 }
 
-async function buildContentDatabase(files, groupStats, bibleSample) {
+async function buildContentDatabase(files, groupStats, bible) {
   await fsp.mkdir(outputRoot, { recursive: true });
   const SQL = await initSqlJs({ locateFile: (fileName) => path.join(path.dirname(require.resolve('sql.js')), fileName) });
   const database = new SQL.Database();
   database.run(`
-    PRAGMA user_version = 1;
+    PRAGMA user_version = 2;
     CREATE TABLE database_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE source_groups (
       name TEXT PRIMARY KEY,
@@ -127,6 +263,15 @@ async function buildContentDatabase(files, groupStats, bibleSample) {
     CREATE INDEX source_assets_path_idx ON source_assets(path);
     CREATE INDEX source_assets_group_idx ON source_assets(group_name);
     CREATE INDEX source_assets_category_idx ON source_assets(category);
+    CREATE TABLE bible_books (
+      book_id TEXT PRIMARY KEY,
+      book_name TEXT NOT NULL,
+      abbreviation TEXT NOT NULL,
+      book_order INTEGER NOT NULL,
+      chapter_count INTEGER NOT NULL,
+      source_version TEXT NOT NULL,
+      license_status TEXT NOT NULL
+    );
     CREATE TABLE bible_verses (
       translation_id TEXT NOT NULL,
       book_id TEXT NOT NULL,
@@ -144,12 +289,15 @@ async function buildContentDatabase(files, groupStats, bibleSample) {
   `);
 
   const metadata = [
-    ['database_version', '1'],
+    ['database_version', '2'],
     ['content_version', contentVersion],
     ['generated_from', 'Data'],
     ['source_asset_count', String(files.length)],
     ['source_asset_bytes', String(files.reduce((sum, file) => sum + file.sizeBytes, 0))],
-    ['bible_sample', `${bibleSample.translation}:${bibleSample.book} ${bibleSample.chapter}`],
+    ['bible_translation', bible.translation],
+    ['bible_book_count', String(bible.books.length)],
+    ['bible_verse_count', String(bible.verses.length)],
+    ['bible_sample', `${bible.translation}:${bible.sample.book} ${bible.sample.chapter}`],
   ];
   const metadataStatement = database.prepare('INSERT INTO database_meta (key, value) VALUES (?, ?)');
   for (const row of metadata) metadataStatement.run(row);
@@ -178,20 +326,34 @@ async function buildContentDatabase(files, groupStats, bibleSample) {
   ]));
   assetStatement.free();
 
+  const bookStatement = database.prepare(`INSERT INTO bible_books
+    (book_id, book_name, abbreviation, book_order, chapter_count, source_version, license_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  bible.books.forEach((book) => bookStatement.run([
+    book.id,
+    book.name,
+    book.abbreviation,
+    book.order,
+    book.chapterCount,
+    book.source,
+    bible.licenseStatus,
+  ]));
+  bookStatement.free();
+
   const verseStatement = database.prepare(`INSERT INTO bible_verses
     (translation_id, book_id, chapter_number, verse_number, canonical_reference, text, strongs_json, translations_json, source_version, license_status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  bibleSample.verses.forEach((verse) => verseStatement.run([
-    bibleSample.translation,
-    'JHN',
-    bibleSample.chapter,
+  bible.verses.forEach((verse) => verseStatement.run([
+    bible.translation,
+    verse.bookId,
+    verse.chapter,
     verse.number,
     verse.reference,
     verse.text,
     JSON.stringify(verse.strongs),
     JSON.stringify(verse.translations),
-    bibleSample.source,
-    bibleSample.licenseStatus,
+    verse.source,
+    bible.licenseStatus,
   ]));
   verseStatement.free();
 
@@ -213,7 +375,7 @@ async function main() {
     if (!fs.existsSync(databasePath) || !fs.existsSync(bibleOutputPath)) {
       throw new Error(`Missing data directory and checked-in runtime database: ${dataRoot}`);
     }
-    console.log('Data directory not present; preserving the checked-in runtime database and John 1 sample.');
+    console.log('Data directory not present; preserving the checked-in runtime database and Bible fallback sample.');
     return;
   }
   const fullPaths = await walk(dataRoot);
@@ -246,9 +408,10 @@ async function main() {
   }
 
   files.sort((left, right) => left.path.localeCompare(right.path));
-  const bibleSample = await buildBibleSample();
-  await buildContentDatabase(files, groupStats, bibleSample);
-  console.log(`Indexed ${files.length} Data assets into ${path.relative(projectRoot, databasePath)} and generated the John 1 runtime sample.`);
+  const bible = await buildBibleCorpus();
+  await buildContentDatabase(files, groupStats, bible);
+  if (bible.duplicateVerses.length > 0) console.warn(`Skipped ${bible.duplicateVerses.length} duplicate Bible verse rows: ${bible.duplicateVerses.slice(0, 5).join(', ')}`);
+  console.log(`Indexed ${files.length} Data assets and ${bible.books.length} Bible books / ${bible.verses.length} verses into ${path.relative(projectRoot, databasePath)}.`);
 }
 
 main().catch((error) => {

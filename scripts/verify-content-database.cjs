@@ -20,16 +20,21 @@ async function main() {
   const metadata = Object.fromEntries(rowsFromResult(database.exec('SELECT key, value FROM database_meta')).map((row) => [row.key, row.value]));
   const sourceCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM source_assets'))[0]?.count || 0);
   const ftsCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM source_assets_fts'))[0]?.count || 0);
+  const bookCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM bible_books'))[0]?.count || 0);
   const verseCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM bible_verses'))[0]?.count || 0);
   assert.equal(metadata.generated_from, 'Data');
   assert.equal(metadata.content_version, packageVersion);
   assert.equal(sourceCount, Number(metadata.source_asset_count));
   assert.equal(ftsCount, sourceCount);
-  assert.equal(verseCount, 51);
+  assert.equal(bookCount, Number(metadata.bible_book_count));
+  assert.equal(bookCount, 66);
+  assert.equal(verseCount, Number(metadata.bible_verse_count));
+  assert.equal(verseCount, 31102);
+  assert.equal(Number(rowsFromResult(database.exec("SELECT COUNT(*) AS count FROM bible_verses WHERE book_id = 'JHN' AND chapter_number = 1"))[0]?.count || 0), 51);
   assert.ok(rowsFromResult(database.exec("SELECT 1 FROM source_assets WHERE path = 'strongs/kjv-HG num/Jhn.json'"))[0]);
   assert.ok(rowsFromResult(database.exec("SELECT 1 FROM bible_verses WHERE canonical_reference = 'John 1:1'"))[0]);
   database.close();
-  console.log(`Content database verified: ${sourceCount} source assets, ${verseCount} Bible verses, FTS rows ${ftsCount}.`);
+  console.log(`Content database verified: ${sourceCount} source assets, ${bookCount} Bible books, ${verseCount} Bible verses, FTS rows ${ftsCount}.`);
 }
 
 main().catch((error) => {

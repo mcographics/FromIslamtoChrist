@@ -22,7 +22,7 @@ The Android renderer checks the public GitHub Releases API. When a newer APK is 
 
 ## Data and licensing boundary
 
-The local `Data` directory is a 1,500+ file research/conversion source and is excluded from Git until redistribution rights are reviewed per asset. The repeatable `npm run build:data` pipeline writes `public/data/from-darkness-to-light.db`, which stores normalized metadata for every local file and the current structured John 1 sample. The SQLite file is bundled as runtime metadata/content; it does not embed the unreviewed DOCX, lexicon, Hebrew, Greek, Text-Fabric, or other raw source files.
+The local `Data` directory is a 1,500+ file research/conversion source and is excluded from Git until redistribution rights are reviewed per asset. The repeatable `npm run build:data` pipeline writes `public/data/from-darkness-to-light.db`, which stores normalized metadata for every local file, the 66-book index, and the current structured KJV corpus (31,102 verses). The SQLite file is bundled as runtime metadata/content; it does not embed the unreviewed DOCX, lexicon, Hebrew, Greek, Text-Fabric, or other raw source files.
 
 Before a public content release, complete the license manifest and attribution review required by `Documentation/plan.md`. Do not treat the current generated catalog or debug APK as evidence that every source asset is cleared for redistribution.
 
@@ -32,6 +32,6 @@ Before a public content release, complete the license manifest and attribution r
 2. Confirm the Android signing/distribution decision before replacing the debug APK with a production-signed artifact.
 3. Update the version in `package.json` and the Android `versionName`/`versionCode`.
 4. Run `npm run verify:database`, `npm run build`, `npm run dist:win`, and `npm run android:debug` locally.
-5. Create and push a tag such as `v0.1.4`.
+5. Create and push a tag such as `v0.1.5`.
 6. GitHub Actions builds the Windows installer and Android test APK. For a tag, it creates the GitHub release consumed by both update paths.
 7. Verify the release assets and checksums publicly before calling the release available.
