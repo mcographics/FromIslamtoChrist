@@ -8,7 +8,8 @@ const appSource = fs.readFileSync(path.join(projectRoot, 'src', 'App.jsx'), 'utf
 const androidUpdaterSource = fs.readFileSync(path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'com', 'mcographics', 'fromdarknesstolight', 'AndroidUpdaterPlugin.java'), 'utf8');
 const workflowSource = fs.readFileSync(path.join(projectRoot, '.github', 'workflows', 'release.yml'), 'utf8');
 
-assert.match(updaterSource, /const productionApks = names\.filter\([\s\S]*?debug[\s\S]*?unsigned/, 'Android update selection must reject debug and unsigned APK assets.');
+assert.match(updaterSource, /const androidApks = names\.filter\([\s\S]*?\.apk/, 'Android update selection must accept APK assets from published GitHub releases.');
+assert.doesNotMatch(updaterSource, /productionApks|debug\|unsigned/, 'Android update selection must not reject a GitHub APK solely because of its asset filename.');
 assert.match(updaterSource, /from-islam-to-christ\[-_\].*\\.apk/, 'Android update selection must prefer the public product-named APK.');
 assert.match(updaterSource, /expectedSha256: update\.assetSha256 \|\| ''/, 'Android downloads must pass the GitHub asset digest to the native verifier.');
 assert.match(androidUpdaterSource, /validateDownloadUrl\(urlValue\)/, 'The native Android updater must validate the download URL before opening it.');
@@ -21,4 +22,4 @@ assert.match(appSource, /openUpdateUrl\(updateState\.downloadUrl \|\| updateStat
 assert.match(workflowSource, /Sign Android release APK/, 'Tagged releases must sign the Android APK.');
 assert.match(workflowSource, /From-Islam-to-Christ-\$releaseVersion\.apk/, 'Tagged releases must publish the product-named Android APK.');
 
-console.log('Update safety verified: Android selects only production APK assets, validates GitHub URL and digest requirements, Windows keeps download/install inside Electron, and tagged releases publish a signed product-named APK.');
+console.log('Update safety verified: Android accepts GitHub APK assets, validates GitHub URL and digest requirements, Windows keeps download/install inside Electron, and tagged releases publish a signed product-named APK.');

@@ -37,10 +37,10 @@ function pickDownloadAsset(assets, platform) {
   if (!Array.isArray(assets)) return null;
   const names = assets.map((asset) => ({ ...asset, lowerName: String(asset.name || '').toLowerCase() }));
   if (platform === 'android') {
-    const productionApks = names.filter((asset) => asset.lowerName.endsWith('.apk') && !/(^|[-_.])(debug|unsigned)([-_.]|$)/i.test(asset.lowerName));
-    return productionApks.find((asset) => /^from-islam-to-christ[-_].*\.apk$/i.test(asset.lowerName))
-      || productionApks.find((asset) => asset.lowerName.includes('release'))
-      || productionApks[0]
+    const androidApks = names.filter((asset) => asset.lowerName.endsWith('.apk'));
+    return androidApks.find((asset) => /^from-islam-to-christ[-_].*\.apk$/i.test(asset.lowerName))
+      || androidApks.find((asset) => asset.lowerName.includes('release'))
+      || androidApks[0]
       || null;
   }
   if (platform === 'windows') return names.find((asset) => asset.lowerName.endsWith('.exe')) || names.find((asset) => asset.lowerName.endsWith('.msi')) || null;

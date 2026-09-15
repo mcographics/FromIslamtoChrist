@@ -1103,6 +1103,20 @@ This queue is intentionally updated as the product advances:
 - This verifies package installation and Android package metadata, not a complete visual click-through of every app screen. The connected phone was not navigated through the full app in this action.
 - The device copy is for local testing only and must not replace the production signing identity or be presented as a Google Play-signed build.
 
+## 2026-09-15 — GitHub Android update asset acceptance correction (unreleased)
+
+### Changed
+
+- Updated `src/services/github-updates.js` so Android selects an APK from any published release returned by the configured GitHub repository. Product-named APKs remain preferred, followed by release-labeled APKs and then the first APK asset; filenames containing `debug` or `unsigned` are no longer rejected by the client-side selector.
+- Kept the actual update-source boundaries intact: the native Android updater still requires an HTTPS `github.com` release-download URL ending in `.apk`, downloads into private app storage, and verifies the GitHub-provided SHA-256 digest when present.
+- Updated `Documentation/ANDROID_AND_RELEASE.md` and `scripts/verify-update-safety.cjs` so the documented and checked behavior matches the GitHub-first update path.
+
+### Validation and boundary
+
+- `npm run verify:updates` passed. It now verifies that Android accepts a GitHub APK asset without filtering it solely by filename, while retaining URL, APK-type, digest, in-app download, and native-install safeguards.
+- Android's package installer remains the final compatibility gate: an APK with no certificate or a certificate different from the installed package can download but cannot install as an update. The current public v0.2.30 Android asset is unsigned, so this source correction does not make that particular artifact installable.
+- No new build or phone installation was performed for this source correction. A new authorized Android build is required before the installed phone app contains this updater change.
+
 ## Future entry template
 
 Use this structure for each meaningful future change:
