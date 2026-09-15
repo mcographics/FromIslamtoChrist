@@ -1,0 +1,781 @@
+# From Islam to Christ — Recent Changes and Updates
+
+This is the running engineering log for the **From Islam to Christ** application.
+
+It records source changes, content/data work, validation, platform work, release decisions, known limitations, and unfinished follow-up. The log is intentionally allowed to grow. Entries are appended chronologically so that a future build, phone installation, GitHub release, or regression investigation can be traced back to the source change that caused it.
+
+This record is separate from:
+
+- [`plan.md`](./plan.md), which defines the product vision and roadmap;
+- [`BUILD_PROGRESS_2026-09-13.md`](./BUILD_PROGRESS_2026-09-13.md), which is the structured progress handoff and release evidence record; and
+- [`ANDROID_AND_RELEASE.md`](./ANDROID_AND_RELEASE.md), which records the platform, signing, updater, and release architecture.
+
+## Working rules for this log
+
+- Append a dated entry for every meaningful source, data, documentation, validation, build, device, or release change.
+- Distinguish clearly between source implementation, static validation, renderer build, Android/Windows packaging, device installation, runtime click-through, GitHub publication, and public release evidence.
+- Do not describe a feature as device-tested unless the relevant device and interaction were actually tested.
+- Do not describe a release artifact as signed unless its signature and signing identity were verified.
+- Keep the current no-build instruction visible in the latest entry until the user authorizes a new build.
+- Preserve unrelated worktree changes when adding future entries.
+- Keep content licensing and editorial review status visible. A file being present in `Data` does not mean it is cleared for redistribution.
+
+## Current project snapshot
+
+| Field | Current value |
+| --- | --- |
+| Public product name | From Islam to Christ |
+| Repository | `mcographics/FromIslamtoChrist` |
+| Branch | `main` |
+| HEAD at the start of this log | `52b0ca1` / tag `v0.2.27` |
+| Package version | `0.2.28` |
+| Android application ID | `com.mcographics.fromdarknesstolight` |
+| Android version code | `30` |
+| Windows shell | Electron 44 + React 19 + Vite 6 |
+| Android shell | Capacitor 8 wrapping the shared renderer |
+| Runtime database | `public/data/from-darkness-to-light.db` |
+| Database schema | Version 5 |
+| Current build instruction | The 2026-09-14 user request authorizes this v0.2.28 build and source/website publication; device installation remains separate |
+| Current source status | v0.2.28 Windows and Android local artifacts are packaged; public release remains gated |
+
+The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
+
+## 2026-09-14 — v0.2.28 authorized cross-platform build
+
+### Renderer and content build
+
+- The user authorized a new build, source publication, and website update after the earlier no-build pause. The version boundary advanced from v0.2.27 to v0.2.28; Android version code advanced from 29 to 30.
+- The production renderer build and data-index step completed as part of both platform packaging commands. The generated runtime database contains 1,566 indexed Data assets, 66 Bible books, 31,102 verses, 14,197 Strong’s entries, 3,369 Vine’s entries, and 12,234 original-language alignments.
+
+### Windows artifact
+
+- `npm run dist:win` completed successfully with Electron Builder 26.15.3, Electron 44.3.0, and the configured public product name **From Islam to Christ**.
+- Output: [`release/From-Islam-to-Christ-0.2.28-x64.exe`](../release/From-Islam-to-Christ-0.2.28-x64.exe), 154,492,718 bytes.
+- SHA-256: `3C319A9839263B86B2B75BE407B0A7601775C572BCA5842E027DB1D13056F4A4`.
+- `release/latest.yml` was regenerated for version `0.2.28` and points to the product-named installer with the matching SHA-512 and size. Authenticode inspection reports `NotSigned`; the installer is a valid local package but is not represented as code-signed.
+
+### Android artifact
+
+- `npm run android:release` completed successfully with a portable Temurin 21.0.12.1 JDK after the machine-default Java 26 runtime failed the build’s Java 21 source-level requirement.
+- Output: [`release/From-Islam-to-Christ-0.2.28-release-unsigned.apk`](../release/From-Islam-to-Christ-0.2.28-release-unsigned.apk), copied from the Gradle release output for convenient local access.
+- APK metadata: package `com.mcographics.fromdarknesstolight`, version code `30`, version name `0.2.28`, application label **From Islam to Christ**, compile/target SDK 36.
+- Size: 42,230,341 bytes. SHA-256: `F95D2FA24F058CAEEB685A8B831C25EB99A5454DA739074D5D227CF65699FABD`.
+- `apksigner verify --verbose` reports `DOES NOT VERIFY` because the local release variant has no signing configuration. This is not a debug APK, but it is not a production-signed release and is intentionally excluded from GitHub publication and the in-app updater.
+
+### Release decision
+
+- The strict content-rights audit remains `0 cleared / 1,566 pending review` (`1,553 needs-review` and `13 source-notice`). The GitHub release workflow therefore remains correctly blocked by `npm run verify:licenses -- --release`.
+- No app-specific production keystore or GitHub Android signing secrets are present in this checkout/account context. The signed v0.2.27 public APK was verified separately, but its private signing key is not available here and another project’s key must not be reused.
+- No phone installation, visual QA, or click-through was performed for v0.2.28 because the current request authorized building and publication, not installation. Package metadata and signature checks are the evidence recorded here.
+
+## 2026-09-14 — Unreleased source continuation: in-app terms, rights, about, and credits
+
+### Changed
+
+- Added [`src/data/legal-information.js`](../src/data/legal-information.js) as the single source for the in-app project identity, plain-language Terms & Conditions, Rights & Usage rules, third-party data credits, software/platform credits, and external-service notices.
+- Added an About, terms & credits entry to Settings. The modal identifies MCOGraphics as the project steward and records the exact public project repository as `mcographics/FromIslamtoChrist`.
+- Added source-aware rights guidance for the local BHSA, N1904, BHS-Strong-no, Strong’s Greek, Vine’s, KJV/Strong’s, translation, and supplied Facts & Info material. The copy distinguishes a repository’s software license from the rights of mixed text, annotation, mapping, gloss, semantic, or derived-data layers.
+- Added documented links for the project GitHub repository, BHSA and N1904 upstream repositories, CC BY-NC 4.0, GPLv3, MIT, and the relevant DOI records. External links are restricted to an HTTPS host allow-list and remain separate from the in-app Android APK update path.
+- Added plain-language notices for local storage, Discreet Mode, PIN/biometrics, Offline-only mode, GitHub update checks, MyMemory fallback translation, safety boundaries, availability, and the need for legal/editorial review before redistribution.
+- Added `scripts/verify-legal-information.cjs` and `npm run verify:legal`; the tagged GitHub workflow now checks the legal/about surface before the existing strict content-rights gate.
+- Extended the accessibility verifier from four to five dialog surfaces so the new legal modal is covered by the same modal semantics, focus trapping, Escape handling, and opener-focus restoration check.
+
+### Validation
+
+- The legal information source check passes after verifying the Settings entry point, Terms & Conditions, Rights & Usage, Credits, source boundaries, safe external links, responsive modal styling, package script, and release-workflow hook.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- This is an in-app plain-language rights and usage record, not legal advice or a substitute for the original license files, author permissions, attribution notices, or qualified counsel.
+- The content release gate remains blocked while the manifest reports 0 of 1,566 local assets cleared. The app is suitable for continued private prototype development, not a rights-cleared public release.
+
+## 2026-09-14 — Unreleased source continuation: updater and mobile contrast review
+
+### Changed
+
+- Reviewed the Android and Windows update paths against the standing requirement that Android APK updates stay inside the app and that public Android releases must not be debug builds.
+- Hardened GitHub release asset selection so Android ignores APK names containing `debug` or `unsigned`, prefers the product-named `From-Islam-to-Christ-*.apk`, and still verifies the optional GitHub SHA-256 digest in the native updater.
+- Corrected the Windows update banner boundary: Electron packaged builds auto-download through `electron-updater`, so the banner no longer exposes an external browser-download action while that download is in progress or merely available. The final Windows install action remains explicit after Electron reports `downloaded`.
+- Changed automatic-translation requests to use the base language code from the selected locale (`de`, `fr`, `ar`, and so on), improving compatibility with translation services while the app continues to present the user’s full locale to the device speech engine and document direction.
+- Strengthened mobile bottom-navigation icon and label colors in both light and dark themes so the controls have an explicit contrast layer instead of relying only on inherited desktop navigation color.
+- Added `scripts/verify-update-safety.cjs` and `npm run verify:updates`, and placed this check before release packaging in the tagged GitHub workflow.
+
+### Validation
+
+- Static updater safety verification passed.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- The updater review proves source-level selection, validation, and action routing only. It does not prove a signed APK, installed package, Android package-installer confirmation, Electron download, or device behavior until builds and runtime testing are authorized.
+- Plan #1 remains active because licensing, editorial approval, packaging, signing, device/accessibility, and private-pilot gates remain open.
+
+## 2026-09-14 — Unreleased source continuation: dialog accessibility review
+
+### Changed
+
+- Reviewed the interactive dialog surfaces after the content and Bible reliability pass: mobile navigation, global search, translation comparison, and the privacy notice.
+- Added a shared `useDialogFocus` behavior that places focus inside each dialog, keeps Tab and Shift+Tab within the active dialog, closes with Escape, and returns focus to the control that opened it when the dialog closes.
+- Added a `tabIndex="-1"` container fallback to each modal so focus remains addressable even if a state-specific view temporarily has no enabled control.
+- Added `aria-modal="true"` to the mobile navigation dialog so it has the same modal semantics as the other overlay surfaces.
+- Added explicit accessible names to the Discreet Mode and Offline-only mode Settings switches; their nearby headings are now reinforced programmatically for screen readers.
+- Added `scripts/verify-accessibility.cjs` and `npm run verify:accessibility`. The check covers dialog counts, modal semantics, initial focus, keyboard focus wrapping, opener-focus restoration, and the existing visible focus treatment.
+- Added the accessibility check before packaging in the tagged GitHub release workflow.
+
+### Validation
+
+- `npm run verify:accessibility` passed.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- This is a source-level accessibility correction. Real screen-reader announcements, large-text layout, hardware-keyboard behavior, and packaged Android/Windows interaction still require future authorized runtime testing.
+- Plan #1 remains active because licensing, editorial approval, packaging, signing, device/accessibility, and private-pilot gates remain open.
+
+## 2026-09-14 — Unreleased source continuation: numbered Bible-reference aliases
+
+### Changed
+
+- Expanded the shared Bible resolver to normalize common numbered abbreviations including `1 Sa`, `1 Ki`, `1 Kgs`, `1 Ch`, `1 Co`, `1 Thess`, `1 Ti`, `1 Pe`, `1 Pt`, `1 Jn`, and their `2`/`3` equivalents where applicable.
+- Added regression cases for numbered references so typed searches, article links, Q&A links, word-study occurrences, and cross-reference actions continue to resolve through the same reader path.
+
+### Validation
+
+- `npm run verify:bible` passed with the expanded numbered-reference set and invalid-location guards.
+- Babel parsing and `git diff --check` remain green.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+## 2026-09-14 — Unreleased source continuation: full content and data review
+
+### Changed
+
+- Added [`CONTENT_REVIEW_REPORT.md`](./CONTENT_REVIEW_REPORT.md) as the current source-by-source review record for the translation DOCX files, Facts & Info manuscripts, Strong's/Vine's resources, BHSA, N1904, the runtime database, and the renderer boundary.
+- Added `scripts/review-content-assets.cjs` and `npm run verify:review`. The audit checks that all 1,566 `Data` files are represented in the manifest and runtime database, flags unexpected empty files, verifies local notice evidence, confirms all four Facts & Info documents have capsules and reading paths, checks that raw `Data` is not imported directly by renderer source, and confirms Source Library routing.
+- Updated the tagged GitHub release workflow to run the review, database, link, coverage, privacy, artwork, and release-license checks before either Windows or Android packaging. The workflow will stop before packaging while any indexed asset remains uncleared.
+- Made the review and license audits safe for both environments: local checkouts inspect the ignored raw `Data` directory and notices, while clean CI checkouts validate the checked-in manifest/database boundary and still enforce the strict cleared-content gate.
+- Confirmed one known zero-byte directory placeholder in the N1904 tutorial tree and no unexpected empty assets. The placeholder is not runtime content and remains visible in the catalog for provenance.
+- Reviewed the local license and provenance material. BHSA and the BHS-Strong mapping retain non-commercial/source-notice boundaries; N1904 has an MIT notice but also documents upstream MACULA, gloss, and semantic layers; the translation DOCX files, Vine's data, Greek Strong's data, scraped KJV/Strong mappings, and supplied Facts & Info manuscripts still need exact rights/provenance records.
+- Confirmed the Facts & Info treatment remains educational and practical without presenting the supplied manuscripts as cleared public articles: four source documents map to four review-draft capsules used by eight reading paths.
+
+### Validation
+
+- `npm run verify:review` passed its technical audit: 1,566 Data files, 1,566 runtime source assets, 66 Bible books, 31,102 verses, 14,197 Strong's entries, 3,369 Vine's entries, 6,895 BHSA alignments, 5,339 N1904 alignments, zero unexpected empty files, zero raw Data imports in renderer source, and Source Library routing present.
+- Current content gate remains intentionally blocked: 0 of 1,566 indexed Data assets are cleared, 13 carry source notices, and 1,553 remain pending review.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- This review makes the current prototype safer to continue using and easier to audit; it does not grant copyright permission or complete theological/editorial approval.
+- Before a pilot or public release, record exact translation editions, upstream rights for each runtime layer, required attribution, reviewer/date, and subject-matter/editorial approvals. Then perform the separately authorized build, signing, device, accessibility, and updater verification.
+
+See [`CONTENT_REVIEW_REPORT.md`](./CONTENT_REVIEW_REPORT.md) for the full matrix and repeatable audit commands.
+
+## 2026-09-14 — Unreleased source continuation: audio current-verse loading fix
+
+### Changed
+
+- Fixed the Bible Audio panel's initial loading transition. When a chapter first rendered with no verses and then received its database rows, the `Current verse` display could remain blank until playback began.
+- The panel now resets its current verse when the loaded verse count changes, while retaining the existing per-verse updates during Web Speech and Android Text-to-Speech playback.
+- Android continues to speak only the verse text; it does not prepend or announce “verse one,” “verse two,” or similar labels.
+- Added `scripts/verify-audio-state.cjs` and `npm run verify:audio` to guard initialization, per-verse advancement, accessible current-verse status, and the no-extra-announcement behavior.
+
+### Validation
+
+- `npm run verify:audio` passed.
+- The existing database, link, Bible-navigation, privacy, source-coverage, content-review, artwork, license-audit, syntax, and diff checks remain green.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- The state correction is source-verified; live speech timing and visual behavior still require a future packaged Android/Windows run when builds are authorized.
+- Plan #1 remains active because licensing, editorial approval, packaging, signing, device/accessibility, and pilot gates remain open.
+
+## 2026-09-14 — Unreleased source continuation: optional offline-only mode
+
+### User-facing behavior
+
+- Added an optional **Offline-only mode** in Settings for users who need to pause network activity while reading or studying.
+- When enabled, the app does not call the GitHub update checker. The Settings update card shows that checks are paused, disables the check action, and hides the install action until the user turns the setting off.
+- When enabled, automatic translation uses only the four bundled Bible language variants and translations already cached on the device. Missing public translations stay in the English source form until the user intentionally restores online translation.
+- Added a visible translation status that identifies the selected language as offline-only and explains that online translation is paused.
+- Reserved Bible reader and audio verse text for the Bible-specific translation path so the generic page translator cannot race the chapter translation loader while a non-bundled language is being prepared.
+- Delete private data now also removes cached automatic translations and resets Offline-only mode to its default off state.
+
+### Privacy boundary
+
+- Offline-only mode is a network-use control, not encryption and not a guarantee that the operating system, an external keyboard, clipboard, screenshots, or a compromised device cannot reveal activity.
+- The privacy notice now documents the update-check and translation boundary beside the existing identity, notification, screen-preview, sharing, backup, lockout, encryption, logging, and deletion limits.
+
+### Source files
+
+- [`src/services/automatic-translation.js`](../src/services/automatic-translation.js) now exposes an explicit offline-only switch, prevents uncached fetches while enabled, cancels active translation requests when the switch is enabled, reports an offline status, and supports clearing its local cache.
+- [`src/App.jsx`](../src/App.jsx) persists the setting, applies it to translation and update flows, exposes the Settings control, and clears it with private-data deletion.
+- [`src/styles.css`](../src/styles.css) adds the offline translation status and the setting boundary-note treatment.
+- [`scripts/verify-privacy-configuration.cjs`](../scripts/verify-privacy-configuration.cjs) checks the offline update, translation, cache-clearing, and privacy-copy boundaries.
+- [`Documentation/ANDROID_AND_RELEASE.md`](./ANDROID_AND_RELEASE.md) records the release and privacy implications.
+- [`Documentation/plan.md`](./plan.md) now has a current implementation-status section that separates verified source features from the remaining licensing, packaging, device, accessibility, and pilot gates.
+- The Source Library now creates an explicit collection card for every indexed source group not already named in the research-collection list, including the 12 top-level `root` Data files as **Project sources**. The existing category/group filters remain available for every individual asset.
+
+### Validation for this entry
+
+- `npm run verify:privacy` passed. It confirms Android backup exclusions, the local PIN lockout boundary, the offline-only update/translation boundary, cache clearing, and the in-app privacy disclosures.
+- `npm run verify:links` passed with 368 Scripture references and 80 in-app actions across 13 data modules resolved.
+- `npm run verify:coverage` passed with all four Facts & Info documents mapped to four capsules and eight reading paths, plus Strong's, Vine's, BHSA, and N1904 runtime coverage; it also checks that named and additional indexed source groups have Source Library routes.
+- `npm run verify:bible` passed with seven canonical/abbreviated/range references and invalid-location guards verified against the reader resolver.
+- `npm run verify:database`, `npm run verify:art`, and `npm run verify:licenses` passed as audits. The license audit still reports 0 of 1,566 assets cleared and 1,566 pending review.
+- Added `scripts/verify-bible-navigation.cjs` and the `npm run verify:bible` command to exercise canonical names, database abbreviations, common Muslim-seeker search forms, range references, and invalid chapter/book guards directly against the reader resolver.
+- Babel parsing passed for all 20 JavaScript/JSX source files, the focused Node syntax checks passed, and `git diff --check` passed with only the existing LF-to-CRLF working-copy warnings.
+- After the Bible translation-path correction, `npm run verify:privacy` passed again; it now also checks that reader and audio verse text remain outside the generic DOM translation observer.
+- No renderer build, Android build, Windows package, phone installation, GitHub push, or public release was performed for this entry under the current instruction.
+- Plan #1 remains open because the content license gate reports 0 of 1,566 indexed assets cleared, and packaged/device/accessibility/privacy behavior still requires release-gate verification.
+
+## 2026-09-14 — Unreleased source continuation: automatic multilingual UI and RTL layout
+
+### User-facing behavior
+
+- Added a persistent 21-language selection with English as the main language.
+- Kept English, Bulgarian, Chinese, and Spanish Bible variants as the locally bundled Bible text choices.
+- Added Arabic, French, German, Portuguese, Turkish, Urdu, Persian, Indonesian, Malay, Bengali, Hindi, Italian, Dutch, Russian, Japanese, Korean, and Swahili as selectable app languages using the automatic translation path when a local translation is not bundled.
+- Added automatic translation of public rendered application text after the user changes the selected language.
+- Added automatic processing for newly rendered content so navigation between Home, Bible, Learn, Questions, Facts & Info, Study Packs, Journey, Faith, Prayer, Saved, Downloads, Library, Settings, article details, and modals does not leave newly mounted public text permanently in English.
+- Added translation of public accessibility and presentation attributes including `aria-label`, `title`, `placeholder`, and image `alt` text where those attributes are not private or explicitly protected.
+- Added a visible translation status surface showing when text is being prepared, when translation work is queued, when the selected language is ready, and when some items are waiting for a connection.
+- Added a Retry action for temporary translation failures. The retry event also causes the protected Bible verse translation effects and the audio verse translation effects to try again.
+- Added right-to-left document direction for Arabic, Persian, and Urdu. The navigation marker, mobile drawer boundary, translation selector, status actions, and mobile heading spacing use direction-aware styling.
+- Added direct use of bundled verse translations on Home and Saved passages when the selected language has a local verse variant. This prevents unnecessary online translation requests for those bundled editions.
+- Updated Home verse sharing so a non-bundled selected language attempts to translate the shared verse text before handing it to the device share or clipboard surface.
+
+### Translation privacy boundary
+
+- The automatic translation service sends public interface and educational text only.
+- Private notes, Journey reflections, prayer-journal entries, Faith testimony drafts, typed searches, custom Saved folder names, and other user-entered private fields are excluded with explicit protection markers or protected input handling.
+- Bible references, proper names, and short strings that a translation service cannot safely improve may remain unchanged.
+- English remains the fallback when the selected non-bundled language has no cached translation and the device has no working connection. The UI does not present that fallback as a completed translation.
+- Translations are cached in local storage by language to reduce repeated requests. This cache is an app convenience cache and is not presented as encrypted private storage.
+- Android and Windows read-aloud continue to use the device/WebView speech engine for the selected locale. The app does not provide a male/female voice selector; Android’s system/default voice remains authoritative.
+
+### Source files
+
+- [`src/services/language.js`](../src/services/language.js) now owns the language catalog, the four bundled Bible language IDs, core copy, locale resolution, and RTL language resolution.
+- [`src/services/automatic-translation.js`](../src/services/automatic-translation.js) provides the online translation fallback, chunking, concurrency limit, local cache, mutation observation, protected selectors, retry handling, and translation status events.
+- [`src/App.jsx`](../src/App.jsx) connects language preference changes to the document locale/direction, public-text translation, status display, bundled Home/Saved verse selection, Bible chapter translation, Bible audio translation, and long-form local read-aloud.
+- [`src/styles.css`](../src/styles.css) adds the visible translation status treatment and direction-aware layout adjustments.
+- [`README.md`](../README.md) documents the 21-language behavior, online fallback, privacy exclusions, RTL languages, and the difference between debug, release-mode, and workflow-signed Android artifacts.
+
+### Validation for this entry
+
+- All 20 JavaScript/JSX files under `src` parsed successfully with the Babel parser.
+- `node --check` passed for `language.js`, `automatic-translation.js`, `bible-reference.js`, and `content-database.js`.
+- `git diff --check` passed. Git reported only the existing LF-to-CRLF working-copy warnings.
+- `npm run verify:database` passed with 1,566 source assets, 66 Bible books, 31,102 Bible verses, 291,919 verse-to-Strong’s links, 14,197 Strong’s entries, 3,369 Vine’s entries, 7,575 Vine’s terms, 6,895 BHSA alignments, 5,339 N1904 alignments, and 1,566 FTS rows.
+- `npm run verify:art` passed with all 17 required artwork files present and non-empty.
+- `npm run verify:licenses` passed as an audit, reporting 1,566 assets pending review and 0 cleared assets. The release-enforcing license gate is therefore still not satisfied.
+- No renderer build, Android build, Windows package, phone installation, GitHub push, or public release was performed for this entry.
+
+## 2026-09-14 — Unreleased source continuation: Bible and study reliability
+
+- Expanded Bible reference resolution with canonical names, database abbreviations, and common abbreviations such as `Jn`, `Rom`, `1 Cor`, `1 Th`, `Ps`, `Rev`, and related forms.
+- Unified clicked Scripture links and typed Bible reference search around the same book-alias resolver.
+- Preserved pending Scripture references when the content database is temporarily unavailable so a link clicked during database recovery can resolve after the database retry succeeds.
+- Added a database retry path for a failed packaged SQLite load and protected the reader from silently reverting to an invalid location.
+- Removed the hidden eight-result occurrence cap from Strong’s/Vine’s lexicon loading. Every returned Strong’s result may now load its first five linked KJV occurrences, while the UI continues to cap the visible result list for practicality.
+- Kept linked Strong’s, Vine’s, BHSA, and N1904 data local to the indexed runtime database. Raw research files remain outside the renderer bundle until licensing and editorial review are complete.
+- Corrected the translation comparison modal so it presents the four actually bundled Bible variants rather than displaying unsupported automatic-language columns as though they were separate bundled editions.
+- Kept Facts & Info, Study Packs, Questions, Journey lessons, Faith content, Prayer content, source-library metadata, and Bible word-study handoffs connected to in-app navigation.
+
+## 2026-09-14 — Unreleased source continuation: Bible book selection loading fix
+
+### Reported behavior
+
+The Bible reader could remain on `Loading [book] [chapter]…` after selecting a different book. The bundled database was checked directly and contains all 66 books, with a populated first chapter for every book, so the symptom was in the renderer request/state path rather than missing chapter-one data.
+
+### Changed
+
+- Added a normalized chapter request boundary in `src/App.jsx` so book IDs and chapter numbers are validated against the loaded book list before a request starts.
+- Added request sequencing so a slower response from an earlier book selection cannot overwrite a newer selection.
+- Added a 15-second safety timeout. A chapter request now exits the loading state with an actionable message if the local database operation does not settle.
+- Changed empty or failed chapter responses to remain visible as a chapter error instead of silently reverting the reader to John 1 or leaving the previous chapter displayed under a new heading.
+- Added `Try this chapter again`, which retries the current book/chapter without rebuilding or restarting the app.
+- Added light- and dark-theme styling for the chapter error state in `src/styles.css`.
+- Strengthened [`scripts/verify-content-database.cjs`](../scripts/verify-content-database.cjs) to check every expected book/chapter slot across the 66-book KJV corpus and parse both Strong’s and translation JSON payloads for every verse row.
+
+### Validation
+
+- Direct read-only SQLite inspection confirmed 66 books and no book missing chapter 1.
+- Direct read-only SQLite inspection confirmed 31,102 KJV verse rows and valid JSON in every checked `strongs_json` and `translations_json` field.
+- `npm run verify:database` passes after the regression-guard change: 66 books, all 1,189 expected chapters covered, 31,102 verse rows, complete English coverage, and the existing Strong’s/Vine’s/BHSA/N1904/FTS counts.
+- Babel parsing passes for all 20 source JS/JSX files.
+- `git diff --check` passes with the existing Windows LF-to-CRLF working-copy warnings only.
+- Browser interaction testing was attempted through the local browser-control surface, but no browser instance was available in this session, so the physical selector click-through remains unverified.
+- No renderer build, Android build, Windows package, phone installation, GitHub push, or release was performed.
+
+### Follow-up
+
+The next authorized renderer/device check should open the Bible, select books from both Old and New Testaments, select a multi-chapter book, switch chapters, and rapidly switch between two books. The expected result is that the final selected location wins, the spinner clears, and the displayed heading and verses match that final location.
+
+## 2026-09-14 — Unreleased source continuation: Scripture handoff regression coverage
+
+### Changed
+
+- Added [`scripts/verify-content-links.cjs`](../scripts/verify-content-links.cjs) and the `npm run verify:links` command.
+- The check loads the actual Bible book index and the structured app data modules, then sends every value under `reference`, `references`, and `reading` fields through the same `resolveBibleReference` implementation used by the renderer.
+- The check covers article, Q&A, Journey, Faith, Prayer, reading-plan, testimony, Facts & Info, and Study Pack data without duplicating the resolver rules in the test.
+- This creates a regression boundary for the previously reported “Open” actions: a content handoff can only be considered connected when its destination resolves against the actual packaged Bible index.
+- Documented `npm run verify:links` beside the database and artwork checks in `README.md` so it remains part of the normal pre-build verification sequence.
+
+### Validation
+
+- `npm run verify:links` passes with 368 Scripture references across 13 data modules and 0 unresolved references.
+- `node --check scripts/verify-content-links.cjs` passes.
+- The README verification section now names the Scripture-link check explicitly.
+- `git diff --check` passes with the existing Windows LF-to-CRLF working-copy warnings only.
+- No renderer build, Android build, Windows package, phone installation, GitHub push, or release was performed.
+
+## 2026-09-14 — Unreleased source continuation: supplied-data runtime coverage
+
+### Changed
+
+- Added [`scripts/verify-source-coverage.cjs`](../scripts/verify-source-coverage.cjs) and the `npm run verify:coverage` command.
+- The coverage check confirms that every supplied Facts & Info document indexed from `Data/Facts & Info` has a matching educational capsule and that every capsule is used by at least one purpose-led reading path.
+- The coverage check confirms that the indexed Strong’s, Vine’s, BHSA, and N1904 source groups each have corresponding runtime study rows in the packaged SQLite content boundary.
+- Documented `npm run verify:coverage` in `README.md` beside the database and Scripture-link checks.
+
+### Validation
+
+- `npm run verify:coverage` passes: 4 Facts & Info documents map to 4 capsules and 8 reading paths; Strong’s has 14,197 runtime rows, Vine’s has 3,369, BHSA has 6,895, and N1904 has 5,339.
+- `node --check scripts/verify-source-coverage.cjs` passes.
+- Babel parsing continues to pass for all 20 source JS/JSX files.
+- `git diff --check` passes with the existing Windows LF-to-CRLF working-copy warnings only.
+- No renderer build, Android build, Windows package, phone installation, GitHub push, or release was performed.
+
+## 2026-09-14 — v0.2.27 privacy and first-launch source slice
+
+- Added the cinematic first-launch decision screen with the exact headline **YOU MADE THE RIGHT DECISION**.
+- Added the John 14:6 affirmation, the reassurance that questions, fears, and loneliness are allowed, the closing line **Your journey begins here.**, and the illuminated **ENTER THE LIGHT** action.
+- Added the immediate Privacy Protection prompt with **Enable Discreet Mode** and **Not Now** actions.
+- Added the neutral Private space startup screen for later Discreet Mode launches.
+- Kept the first-launch sequence automatic only until onboarding is completed. Settings can intentionally replay the onboarding sequence.
+- Added an Android-only Quick close action that calls `finishAndRemoveTask()` where available and uses a normal activity finish fallback on older Android versions.
+- Kept the privacy wording honest: Quick close does not erase application data, screenshots, backups, or every operating-system record.
+- Improved Android biometric availability detection using the actual Android biometric capability result rather than treating every device as available.
+- Kept the local PIN as a local access gate with PBKDF2 hashing and a per-install salt. The PIN is not described as encryption.
+- Added Android screenshot/task-preview protection through the existing native privacy bridge when Discreet Mode is enabled.
+
+The existing v0.2.27 artifact record belongs to the earlier build/install history in [`BUILD_PROGRESS_2026-09-13.md`](./BUILD_PROGRESS_2026-09-13.md). The multilingual and Bible reliability changes in the current worktree are later source changes and have not been packaged.
+
+## 2026-09-14 — v0.2.26 Bible chapter local audio
+
+- Extended the native Android `LocalTextToSpeech` fallback to the Bible Audio reader.
+- Allowed chapter playback to start from the selected verse or from the beginning of the chapter.
+- Kept current verse state synchronized while native Android speech advances through verses.
+- Kept Android native Stop/replay behavior honest because Android Text-to-Speech does not expose a portable pause API.
+- Preserved Web Speech Pause/Resume behavior where the WebView exposes Web Speech.
+- Removed verse-number announcements from the spoken verse text so the audio does not repeatedly announce which verse is being read.
+- Kept the system/default voice as the Android voice source. No male/female selector is used.
+
+## 2026-09-14 — v0.2.25 native Android Text-to-Speech fallback
+
+- Added and registered the native `LocalTextToSpeech` Capacitor plugin.
+- Added native availability checks, locale application, speaking, stopping, and speech-state events.
+- Added a Settings action that opens the Android system voice-language download/settings screen rather than sending the user to a phone browser.
+- Added per-reading utterance IDs so unrelated audio surfaces do not react to one another’s native events.
+- Kept educational-library read-aloud inside the app without downloading audio files.
+
+## 2026-09-14 — v0.2.24 Study Pack and Downloads audio
+
+- Extended local read-aloud to all five bundled Study Packs.
+- Extended local read-aloud to generated guides reopened from the private Downloads shelf.
+- Kept generated study guides readable and listenable inside the app without leaving to a browser or generating an external audio file.
+- Reused the existing Study Pack and Downloads artwork.
+
+## 2026-09-14 — v0.2.23 educational-library local read-aloud
+
+- Added reusable local read-aloud controls to Facts & Info paths, Muslim-seeker Q&A, source-linked studies, Journey lessons, the 30-day Faith path, and guided prayers.
+- Added Play, Pause, Resume, Stop, and Replay behavior for Web Speech-capable surfaces.
+- Added explicit unavailable states when a device or WebView lacks a local speech engine.
+- Kept readable text available even when audio is unavailable.
+
+## 2026-09-14 — v0.2.22 Prayer learning and guided prompts
+
+- Added a four-step Learn to Pray guide covering honest speech, asking for help, listening through Scripture, and taking a faithful next step.
+- Linked each prayer-learning step to an in-app Bible reference.
+- Expanded guided prayer prompts to eleven, including forgiveness, forgiving others, gratitude for mercy, and reading Scripture.
+- Kept the journal local with ongoing/answered states, deletion, character limits, and private-data reset coverage.
+
+## 2026-09-14 — v0.2.21 Facts & Info reading purposes
+
+- Divided the eight Facts & Info educational paths into reading purposes: **Start with Jesus**, **Examine the claims**, **Respond and grow**, and **Read responsibly**.
+- Preserved source-document traceability, Scripture trails, related Muslim-seeker questions, and private three-section reading checkpoints.
+- Kept the supplied research material framed as source-linked educational drafts rather than final historical or doctrinal rulings.
+
+## 2026-09-14 — v0.2.20 Home Journey continuation
+
+- Added a Home action that opens the next available Journey lesson directly.
+- Changed the action to a review shortcut for the final lesson after all seven Journey lessons are complete.
+- Preserved the separate Home action that returns to the last Bible reading location.
+
+## 2026-09-14 — v0.2.19 Home Verse of the Day explanations
+
+- Added a locally maintained explanation for each reference in the curated 32-day Verse of the Day cycle.
+- Kept explanations separate from Bible text so Scripture remains database-backed and the explanatory layer can be reviewed independently.
+- Added a neutral fallback explanation for a future reference that has not yet received its own editorial explanation.
+
+## 2026-09-14 — v0.2.18 Home daily-verse actions
+
+- Added Save, Share, Copy fallback, and Open reference actions to the Home Verse of the Day.
+- Kept sharing inside the operating-system share surface or the local clipboard fallback.
+- Made the exact verse reference open in the in-app Bible reader.
+- Added responsive styling for the Home verse action row.
+
+## 2026-09-14 — v0.2.17 mission-aligned daily verse cycle
+
+- Replaced arbitrary daily-verse selection with a curated 32-reference Jesus-centered cycle.
+- Resolved each daily reference from the complete local KJV SQLite corpus.
+- Verified the cycle references against the database; the 2026-09-14 selection is John 1:5.
+
+## 2026-09-14 — v0.2.16 local daily verse
+
+- Replaced the hard-coded Home John 1:5 card with a deterministic local daily verse loaded from SQLite.
+- Used the shared stable verse ID so the daily verse participates in local bookmarks and Saved.
+- Made Open today’s verse use the shared in-app Bible reference resolver.
+- Kept John 1:5 as the recovery fallback when the database is unavailable.
+
+## v0.2.15 — Facts & Info to Q&A bridge
+
+- Expanded the Muslim-seeker Q&A library from 33 to 41 Scripture-linked guides.
+- Added questions covering Jesus as the only way, repentance, the Holy Spirit, Christianity’s Middle Eastern roots, Old Testament practice, prayer to Jesus, original sin, and Christian failure.
+- Added question handoffs to all eight Facts & Info paths.
+- Kept the distinction between supplied-author arguments, Scripture, comparative references, and claims requiring review.
+
+## v0.2.14 — contextual Q&A follow-up
+
+- Added topic-aware contextual follow-up prompts to full Q&A study views.
+- Added related local readings based on shared Scripture, topic, and source context.
+- Kept the answer flow bounded and local rather than introducing unrestricted internet answers or an account system.
+
+## v0.2.13 — offline Strong’s and Vine’s explorer
+
+- Added a dedicated Learn explorer for Strong’s and Vine’s data.
+- Added search by Strong’s number, lemma, transliteration, and definition.
+- Added linked dictionary metadata, original-language alignment metadata, occurrence counts, and related verse navigation.
+- Added normalized `bible_verse_strongs` lookup for efficient local occurrences and related-verse discovery.
+
+## v0.2.12 — Home Facts & Info continuation
+
+- Added a private Home Facts & Info progress card.
+- Added a direct continuation handoff into the next unfinished Facts & Info path.
+- Reused the Facts & Info research artwork.
+
+## v0.2.11 — Faith-path resume state
+
+- Added persistence for the selected Faith day.
+- Added resume behavior that selects the next unfinished day in the private 30-day path.
+
+## v0.2.10 — source-library research handoffs
+
+- Connected indexed Facts & Info source records to practical guided reading paths.
+- Added source-aware handoff guidance in the library.
+- Kept raw source files outside the renderer bundle.
+
+## v0.2.9 — Q&A detail progress
+
+- Added the same explored/ongoing Q&A action to full article detail views.
+- Kept Q&A progress local and included it in the private-data reset.
+
+## v0.2.8 — Q&A progress
+
+- Added private explored markers to the question shelf.
+- Added topic-aware question progress indicators.
+
+## v0.2.7 — Q&A foundations expansion
+
+- Expanded the question library to 33 guides.
+- Added Christian monotheism, Jesus’ “I am” claims, Father/Son/Spirit, and Old/New Testament introductions.
+
+## v0.2.6 — Q&A evidence topics
+
+- Expanded the question library to 29 guides.
+- Added Bible authorship, apparent contradictions, manuscripts, translation differences, Jesus’ eternality, resurrection, and earlier Scripture comparison.
+
+## v0.2.5 — Q&A topic organization
+
+- Organized the question library by Jesus, God, Bible, Quran & Islam, and Salvation & Life.
+- Added local topic filtering.
+
+## v0.2.4 — Q&A content expansion
+
+- Expanded the question library to 21 Scripture-linked questions.
+- Added teaching on incarnation, God’s love, forgiveness and justice, salvation comparison, assurance, Quran–Gospel comparison, first steps, and family safety.
+
+## v0.2.3 — Study Packs and Downloads
+
+- Added five locally bundled Study Packs.
+- Added in-app resource handoffs to Bible passages, articles, Facts & Info paths, prayer, Journey lessons, and related educational content.
+- Added local pack saving and private per-resource checkpoints.
+- Added locally generated plain-text guide export and a private Downloads shelf.
+- Kept guide export separate from the Android APK updater.
+
+## v0.2.2 — structured learning library
+
+- Added the initial structured study-pack model and the controlled Ask a Question guide.
+- Added natural-language aliases, curated answers, direct Scripture links, and contextual alternatives.
+- Added global local search coverage for study packs, Facts & Info paths, and indexed source assets.
+
+## v0.2.1 — responsive Android layout
+
+- Constrained the Android viewport, application shell, main content, and page content to prevent unintended horizontal panning.
+- Wrapped reader controls and replaced fixed-width Bible selectors with responsive mobile controls.
+- Added safer wrapping for verse text and narrow content areas.
+- Preserved shared Windows/Android renderer behavior.
+
+## v0.2.0 — local privacy foundation
+
+- Added the local PIN gate and five-minute inactivity locking.
+- Added manual Lock now and private-data deletion controls.
+- Added PBKDF2 PIN verification with a per-install salt.
+- Added Android `FLAG_SECURE` request handling through the PrivacyShield bridge.
+- Documented that the PIN gate is an access gate, not encryption, and cannot protect against device storage access, backups, screenshots, or a compromised device.
+
+## v0.1.x — initial application and data foundation
+
+- v0.1.0 added GitHub update checks and the initial mobile Android build path.
+- v0.1.1 applied branded application icons and splash screens.
+- v0.1.2 added responsive hero artwork for desktop and Android.
+- v0.1.3 moved the local content catalog into SQLite.
+- v0.1.4 added local Bible study tools and Learn search.
+- v0.1.5 added the full offline 66-book Bible corpus and chapter navigation.
+
+## Content and data inventory
+
+The current runtime database verifies the following local content boundary:
+
+| Content or source layer | Current verified count/status |
+| --- | --- |
+| Indexed `Data` source assets | 1,566 |
+| Bible books | 66 |
+| KJV Bible verses | 31,102 |
+| Bulgarian verse coverage | 31,101 |
+| Chinese verse coverage | 31,022 |
+| Spanish verse coverage | 31,066 |
+| Verse-to-Strong’s links | 291,919 |
+| Strong’s lexicon entries | 14,197 |
+| Vine’s entries | 3,369 |
+| Vine’s terms | 7,575 |
+| BHSA alignments | 6,895 |
+| N1904 alignments | 5,339 |
+| Full-text search rows | 1,566 |
+| Facts & Info source DOCX files | 4 |
+| Facts & Info guided paths | 8 |
+| Muslim-seeker Q&A guides | 41 |
+| Study Packs | 5 |
+| Study Pack resources | 25 |
+| Guided Bible reading plans | 5 |
+| Guided reading-plan chapter stops | 39 |
+| Journey lessons | 7 |
+| Faith/new-believer days | 30 |
+| Scripture-based testimony studies | 6 |
+| Guided prayer prompts | 11 |
+| Required section/hero artwork | 17/17 present |
+
+The four supplied Facts & Info DOCX files are represented by source-linked educational capsules and purpose-led reading paths rather than copied wholesale into the renderer bundle. The app keeps their source paths, themes, Scripture trails, comparative references, and review boundaries visible. The raw files remain conversion/research inputs until redistribution is reviewed.
+
+## Validation ledger
+
+### Passed source/data checks
+
+- All 20 source JS/JSX files parse successfully.
+- Changed services pass `node --check`.
+- `npm run verify:database` passes.
+- `npm run verify:art` passes.
+- `npm run verify:licenses` passes as a non-enforcing audit.
+- `git diff --check` passes.
+- Bible reference alias checks cover full names and common abbreviations including `Ps 23:1`, `Jn 1:1`, `Rom 8:1`, `1 Cor 15:3`, `1 Th 5:16`, `1 Sam 3`, and `Rev 21`.
+- Prior read-only automatic-translation service smoke checks returned successful responses for the supported non-English target locales.
+
+### Checks that must not be inferred
+
+- Source parsing does not prove that a Windows or Android renderer build succeeds.
+- A renderer build does not prove that the Android package is signed with the correct release identity.
+- A packaged APK does not prove that it installed on a connected phone.
+- A successful installation does not prove that every screen was visually or interactively tested.
+- A GitHub push does not prove that the tagged release contains the intended Windows and Android assets.
+- A public GitHub release does not prove that the 1,566 source assets are legally cleared.
+
+## Known release and product gates
+
+- The current license audit reports 0 cleared and 1,566 pending review. Run the release-enforcing audit only after content owners and reviewers have completed the manifest.
+- The four bundled Bible variants and the derived Strong’s/Vine’s/BHSA/N1904 layers still require licensing, attribution, and editorial decisions before a public production content release.
+- Local PIN protection is not encryption. A stronger encrypted private-state design remains a product/security task.
+- Automatic translation for non-bundled languages requires a connection for the first translation and depends on the external translation service. Cached translations can be reused locally afterward.
+- Automatic translation has not been visually verified on an unlocked Android device or a packaged Windows renderer in this source continuation.
+- The latest current worktree changes have not been built, installed, pushed, or released.
+- Community, mentor chat, cloud sync, public testimony upload, unrestricted AI answers, church finder, and other high-risk features remain outside the current safe local-first scope.
+
+## Next work queue
+
+This queue is intentionally updated as the product advances:
+
+1. Continue the plan-based feature audit and repair the next verified source/runtime gap.
+2. Expand practical, Jesus-centered use of the indexed Facts & Info, Strong’s, Vine’s, Hebrew, Greek, and research metadata without bundling uncleared raw files.
+3. Improve private-state protection beyond the current local-storage access gate after deciding the encryption/key-storage model.
+4. Complete content, theological, cultural, safety, accessibility, and redistribution review before declaring a public release ready.
+5. When authorized, build the renderer and release-mode Android/Windows artifacts, verify signatures and versions, install on the connected phone only with compatible signing identity, and then update this log with exact evidence.
+
+## 2026-09-14 — Unreleased source continuation: Bible location recovery and action-target verification
+
+### Changed
+
+- Normalized the Bible reader’s persisted book and chapter before the chapter-loading effect uses them. A stale book ID or out-of-range chapter is now mapped to a real runtime book and clamped to that book’s available chapter range.
+- Kept the visible selector and the database request on the same normalized location, preventing an old local-storage value from leaving the reader loading a destination that the current database cannot serve.
+- Improved the chapter timeout message to show the human-readable book name when a request genuinely takes too long.
+- Extended `scripts/verify-content-links.cjs` to validate typed in-app actions, including Study Focus steps, Study Pack resources, and Facts & Info article handoffs. Article, Bible, path, Journey lesson, and view targets are checked against the current local destination sets.
+
+### Validation
+
+- `node --check scripts/verify-content-links.cjs` passed.
+- `npm run verify:links` passed: 368 Scripture references and 80 in-app actions across 13 data modules, 0 unresolved.
+- The source-only validation boundary remains in effect: no renderer build, APK/Windows packaging, device installation, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- The connected phone and packaged runtime are still not available for visual click-through in this source continuation, so the selector behavior is structurally guarded but not device-verified here.
+- Continue the plan-based audit of remaining user actions and keep the Bible/database checks in the validation ledger before any future build is authorized.
+
+## 2026-09-14 — Unreleased source continuation: accurate content release gating
+
+### Changed
+
+- Updated the Settings content-stewardship card so “Release ready” is shown only when every indexed source asset has an explicit `cleared` status.
+- Pending totals now equal indexed assets minus cleared assets, so any unknown or newly introduced review status cannot disappear from the count.
+- Added an explicit unclassified-status count to the review notice, keeping the UI aligned with the release-enforcing license manifest.
+
+### Validation
+
+- Source parsing and the content-link checks remain green after the change.
+- The current local audit still reports 1,566 indexed assets, 0 cleared, and 1,566 pending review.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- This is a source/data stewardship correction; it does not grant redistribution rights or clear any content.
+- Content owners and reviewers must complete the license manifest before a release-enforcing check can pass.
+
+## 2026-09-14 — Unreleased source continuation: explicit source-review statuses
+
+### Changed
+
+- Added a shared review-status label for source assets and used it in the Learn Facts & Info source cards and the complete Source Library list.
+- Assets with an unrecognized review status now display `Unclassified` instead of being silently presented as ordinary review items. This matches the Settings release gate, which treats every non-`cleared` status as pending.
+
+### Validation
+
+- The source/data validation suite remains the authority for counts and manifest state; the current catalog is still 1,566 indexed assets with 0 cleared and 1,566 pending review.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- This label improves visibility only; it does not clear or authorize redistribution of any source.
+- Continue connecting approved source-derived material to practical educational surfaces while preserving the raw-source licensing boundary.
+
+## 2026-09-14 — Unreleased source continuation: direct Bible sub-surface handoffs
+
+### Changed
+
+- Added explicit Bible focus destinations for `read`, `audio`, and `word-study`.
+- The Learn “Open audio reader” action now opens the Bible Audio tab and scrolls to the local read-aloud surface after the chapter is ready.
+- Strong’s and Vine’s source-library guidance now opens the Bible and focuses the word-study card instead of dropping the user at the top of an unrelated reader view.
+- Generic Bible-source guidance still opens the normal Read tab.
+- Direct Scripture references and manual book/chapter changes clear any pending focus target, so an older handoff cannot steal focus after the user starts a different reading action.
+
+### Validation
+
+- All 368 structured Scripture references and 80 typed in-app actions still resolve through `npm run verify:links`.
+- All source JS/JSX files continue to pass Babel parsing.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- The scroll/focus behavior is source-implemented but still needs live visual verification in a packaged renderer and on the connected Android device.
+- Plan #2 remains premature because Plan #1 still has licensing, privacy-hardening, packaging, and device-verification gates open.
+
+## 2026-09-14 — Unreleased source continuation: Android backup privacy boundary
+
+### Changed
+
+- Added Android legacy and Android 12+ backup/transfer rules that exclude the app's private local state from cloud backup and device-to-device transfer.
+- Disabled Android application backup at the manifest level as an additional privacy boundary for the local-first prototype.
+- Updated the Settings prototype boundary and the Discreet Mode explanation so the user can understand that saved notes, reflections, and progress are not restored automatically to another device.
+
+### Validation
+
+- This change is limited to Android manifest/resources and renderer copy; no build was run because the no-build boundary remains active.
+- No APK/Windows package, install, GitHub push, or release was performed.
+
+### Boundaries and follow-up
+
+- The backup exclusion protects against ordinary Android backup and transfer. It does not provide encryption or protect data from someone with device or storage access.
+- The Android manifest/resources still need a permitted release build and device verification before this privacy gate can be marked complete.
+
+## 2026-09-14 — Unreleased source continuation: bounded PIN failure throttle
+
+### Changed
+
+- Added local failed-attempt tracking to the app PIN screen.
+- After five incorrect PIN attempts, the screen applies an escalating temporary lockout capped at five minutes. A correct PIN or successful biometric unlock clears the counter.
+- Delete private data, disabling the PIN, or creating a new PIN clears the lockout state.
+- The screen keeps biometric fallback available and describes the behavior as a temporary access throttle, not encryption.
+
+### Validation
+
+- `npm run verify:privacy` now checks the threshold, maximum delay, failure callback, and user-facing lockout message in addition to the Android backup configuration.
+- Source parsing, structured content links, source coverage, database integrity, artwork presence, license audit, and `git diff --check` remain green.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- The lockout is implemented in the shared renderer and persists locally; it still needs packaged Android testing for lifecycle behavior and accessibility verification.
+- It slows casual repeated guessing but cannot protect data from someone with device/storage access or a compromised device.
+
+## 2026-09-14 — Unreleased source continuation: complete privacy boundary notice
+
+### Changed
+
+- Expanded the in-app privacy notice to document launcher identity, the absence of app-created notifications, Android screenshot and recent-task protection requests, clipboard/share exposure, local storage and backup behavior, encryption-at-rest limits, PIN/biometric behavior, crash/log boundaries, and data deletion limits.
+- Corrected the Settings Notifications row to state that this build creates no notifications or notification-history entries.
+- Added responsive styling for the privacy boundary list so the explanation remains readable in the light and dark themes.
+
+### Validation
+
+- `npm run verify:privacy` now checks the user-facing notification, clipboard/share, encryption, and remote-logging disclosures as well as the Android backup and PIN-throttle safeguards.
+- Source parsing, structured content links, source coverage, database integrity, artwork presence, license audit, and `git diff --check` remain green.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- The notice documents current behavior; it does not replace real Android screenshot, task-preview, backup, lockout, biometric, accessibility, or lifecycle testing.
+- The prototype still uses local Web Storage without encryption at rest and retains the public product identity in its launcher label/icon.
+
+## Future entry template
+
+Use this structure for each meaningful future change:
+
+```markdown
+## YYYY-MM-DD — [unreleased or version] — [feature/change]
+
+### Changed
+
+- What changed and why.
+- Files/data/assets affected.
+- User-visible behavior.
+
+### Validation
+
+- Exact checks run and their results.
+- Device/runtime/build/release evidence, if actually available.
+
+### Boundaries and follow-up
+
+- What was not tested or is not yet implemented.
+- Licensing, safety, accessibility, privacy, or release gates that remain.
+```

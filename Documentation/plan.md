@@ -1036,7 +1036,32 @@ If the answer is no, it probably does not belong in the first version.
 
 # 33. Implementation-Ready Addendum
 
-> **Status:** Planning decision draft — this section defines the recommended first build and release gates. It does not claim that any feature is currently implemented.
+## 33.0 Current Implementation Status
+
+This plan remains active. The current React/Electron/Capacitor prototype has implemented a broader local study experience than the original MVP outline, but implementation is not the same as release readiness. The following status is based on the current source and static verification rather than a claim of device or packaged-app testing.
+
+Implemented in the current source:
+
+- Bible reader book/chapter navigation, reference search, chapter loading with stale-request protection and retry handling, copy, bookmarks, highlights, private notes, font sizing, reading tones, focus reading, local audio, translation selection, comparison, cross references, Strong's/Vine's word study, and original-language alignment panels.
+- Home continuation, deterministic daily Scripture, five reading plans, seven-lesson Journey progress/reflections, thirty-day Faith progress, private testimony drafting, Prayer learning and journal entries, Saved folders, local Downloads, and Study Packs with Scripture/article/path/lesson handoffs.
+- A 41-question Muslim-seeker library with Quick Answer, Study Answer, Compare, and Scripture Only modes; four Facts & Info educational capsules represented in eight purpose-led reading paths; and Scripture-linked articles and testimonies.
+- A complete indexed Data catalog with 1,566 source assets, searchable source metadata, review labels, source-specific guidance, and runtime coverage for Strong's, Vine's, BHSA, and N1904 resources. Raw research files remain outside the renderer bundle until their redistribution status is approved.
+- A repeatable content/data review audit in `scripts/review-content-assets.cjs` plus `Documentation/CONTENT_REVIEW_REPORT.md`. It verifies Data/manifest/runtime parity, notice evidence, Facts & Info capsule/path coverage, raw-source renderer boundaries, and Source Library routing without weakening the release gate.
+- Shared dialog accessibility behavior now restores focus to the opener, wraps keyboard focus within Search, comparison, privacy, mobile navigation, and About/rights dialogs, and closes those dialogs with Escape. The source-level `npm run verify:accessibility` gate protects these behaviors.
+- First-launch decision and privacy onboarding, Discreet Mode, Android screen protection requests, local PIN/biometric lock, bounded PIN failure throttling, Android backup exclusions, Android quick close, notification/clipboard/share disclosures, and optional Offline-only mode.
+- Persistent 21-language selection with English as the main language, bundled English/Bulgarian/Chinese/Spanish Bible variants, automatic public-text translation with local caching, protected private fields, Bible-specific translation loading, and RTL document direction for Arabic, Persian, and Urdu.
+- Update safety now rejects debug/unsigned Android release assets, keeps Windows update actions inside Electron while its updater downloads, uses base language codes for online translation requests, and gives mobile bottom-navigation icons explicit light/dark theme contrast. The source-level `npm run verify:updates` gate protects the updater boundary.
+- Settings now exposes an in-app About, Terms & Conditions, Rights & Usage, Credits, software/platform credits, external-service notices, and source-by-source GitHub/DOI/license links. The legal record identifies MCOGraphics as project steward, documents the known BHSA/N1904/BHS-Strong-no/Strong's/Vine's/Facts & Info boundaries, and uses an HTTPS host allow-list for external legal links. `npm run verify:legal` protects the entry point, content, and modal accessibility boundary.
+
+Still open before Plan #1 can be considered complete:
+
+- Confirm at least one legally cleared Bible translation and complete the redistribution review for every asset intended for a release package. The current audit reports 0 of 1,566 indexed assets cleared.
+- Complete the source-by-source editorial review: verify Quran/Bible references, Arabic transliteration, historical claims, respectful representation of Islamic beliefs, pastoral safety, and the author permissions for the supplied Facts & Info manuscripts. The current capsules and Q&A are useful review drafts, not final approved teaching material.
+- Perform a renderer build, Android release packaging, Windows packaging, signing-identity checks, installation, updater verification, and public-release evidence review when the user authorizes builds again.
+- Test the packaged surfaces on supported Android and Windows environments, including accessibility services, large text, screenshots, task previews, backup/restore behavior, quick close, local audio, language switching, chapter loading, and update installation.
+- Resolve the remaining technical, theological/editorial, supported-device, and private-pilot decisions recorded below.
+
+> **Status:** Active implementation and release-gate record — the current source status is listed above, while the acceptance criteria below remain open until the required packaging, device, accessibility, licensing, and pilot evidence exists.
 
 The preceding sections define the product vision. This addendum converts that vision into a smaller, testable Android MVP so that implementation can begin without silently expanding the scope.
 

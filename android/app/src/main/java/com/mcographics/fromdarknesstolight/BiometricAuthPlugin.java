@@ -10,6 +10,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import androidx.biometric.BiometricPrompt;
+import androidx.biometric.BiometricManager;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
@@ -19,12 +20,11 @@ import java.util.concurrent.Executor;
 public class BiometricAuthPlugin extends Plugin {
     @PluginMethod
     public void isAvailable(final PluginCall call) {
+        final int availability = biometricAvailability();
         JSObject result = new JSObject();
-        result.put("available", Build.VERSION.SDK_INT >= Build.VERSION_CODES.M);
+        result.put("available", availability == BiometricManager.BIOMETRIC_SUCCESS);
         result.put("platform", "android");
-        result.put("message", Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                ? "Android biometric authentication is available to try."
-                : "Biometric authentication requires Android 6 or newer.");
+        result.put("message", biometricAvailabilityMessage(availability));
         call.resolve(result);
     }
 
@@ -41,6 +41,11 @@ public class BiometricAuthPlugin extends Plugin {
         }
         if (!(activity instanceof FragmentActivity)) {
             call.reject("This Android activity cannot display the biometric prompt.");
+            return;
+        }
+        final int availability = biometricAvailability();
+        if (availability != BiometricManager.BIOMETRIC_SUCCESS) {
+            call.reject(biometricAvailabilityMessage(availability));
             return;
         }
 
@@ -73,5 +78,29 @@ public class BiometricAuthPlugin extends Plugin {
         result.put("authenticated", authenticated);
         result.put("cancelled", cancelled);
         call.resolve(result);
+    }
+
+    private int biometricAvailability() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED;
+        }
+        return BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK);
+    }
+
+    private String biometricAvailabilityMessage(int availability) {
+        switch (availability) {
+            case BiometricManager.BIOMETRIC_SUCCESS:
+                return "Android biometric authentication is ready.";
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
+                return "This device has no biometric sensor.";
+            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
+                return "The biometric sensor is temporarily unavailable.";
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
+                return "No biometric is enrolled in Android settings.";
+            case BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED:
+                return "Biometric authentication requires Android 6 or newer.";
+            default:
+                return "Android biometric authentication is unavailable.";
+        }
     }
 }

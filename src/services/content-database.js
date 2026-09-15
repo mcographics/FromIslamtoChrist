@@ -5,6 +5,23 @@ const DATABASE_FILE = 'data/from-darkness-to-light.db';
 let databaseSnapshotPromise;
 let databaseHandlePromise;
 
+function bytesFromBridgeValue(value) {
+  if (!value) return null;
+  if (Object.prototype.toString.call(value) === '[object ArrayBuffer]') return new Uint8Array(value);
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  if (Array.isArray(value)) return new Uint8Array(value);
+  if (Array.isArray(value.data)) return new Uint8Array(value.data);
+  return null;
+}
+
+function databaseUrl() {
+  const base = typeof document !== 'undefined' && document.baseURI
+    ? document.baseURI
+    : `${import.meta.env.BASE_URL || './'}`;
+  return new URL(DATABASE_FILE, base).toString();
+}
+
 function rowsFromResult(result) {
   if (!result?.[0]) return [];
   const [{ columns, values }] = result;
@@ -19,15 +36,28 @@ function rowsFromStatement(statement) {
 }
 
 async function readDatabaseBytes() {
+  let bridgeError = null;
   if (window.fromDarkness?.getContentDatabase) {
-    const bridged = await window.fromDarkness.getContentDatabase();
-    if (bridged instanceof ArrayBuffer) return new Uint8Array(bridged);
-    if (ArrayBuffer.isView(bridged)) return new Uint8Array(bridged.buffer, bridged.byteOffset, bridged.byteLength);
+    try {
+      const bridged = await window.fromDarkness.getContentDatabase();
+      const bytes = bytesFromBridgeValue(bridged);
+      if (bytes?.byteLength) return bytes;
+      bridgeError = new Error('The desktop content bridge returned no database bytes.');
+    } catch (error) {
+      bridgeError = error;
+    }
   }
 
-  const response = await fetch(`./${DATABASE_FILE}`, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`Content database returned ${response.status}.`);
-  return new Uint8Array(await response.arrayBuffer());
+  try {
+    const response = await fetch(databaseUrl(), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Content database returned ${response.status}.`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!bytes.byteLength) throw new Error('The packaged content database is empty.');
+    return bytes;
+  } catch (fetchError) {
+    const details = bridgeError?.message ? ` Desktop bridge: ${bridgeError.message}` : '';
+    throw new Error(`The packaged Bible database could not be opened.${details} ${fetchError?.message || ''}`.trim());
+  }
 }
 
 function mapBibleVerse(verse) {

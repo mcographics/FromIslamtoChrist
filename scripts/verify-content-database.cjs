@@ -29,7 +29,8 @@ async function main() {
   const metadata = Object.fromEntries(rowsFromResult(database.exec('SELECT key, value FROM database_meta')).map((row) => [row.key, row.value]));
   const sourceCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM source_assets'))[0]?.count || 0);
   const ftsCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM source_assets_fts'))[0]?.count || 0);
-  const bookCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM bible_books'))[0]?.count || 0);
+  const bibleBooks = rowsFromResult(database.exec('SELECT book_id, book_name, chapter_count FROM bible_books ORDER BY book_order'));
+  const bookCount = bibleBooks.length;
   const verseCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM bible_verses'))[0]?.count || 0);
   const translationCoverage = { en: 0, bg: 0, ch: 0, sp: 0 };
   rowsFromResult(database.exec('SELECT translations_json FROM bible_verses')).forEach((row) => {
@@ -38,6 +39,24 @@ async function main() {
       if (translations[key]) translationCoverage[key] += 1;
     });
   });
+  const bibleVerseJsonRows = rowsFromResult(database.exec('SELECT strongs_json, translations_json FROM bible_verses'));
+  bibleVerseJsonRows.forEach((row) => {
+    JSON.parse(row.strongs_json);
+    JSON.parse(row.translations_json);
+  });
+  const chapterCoverage = rowsFromResult(database.exec(`
+    SELECT b.book_id AS bookId,
+      b.book_name AS bookName,
+      b.chapter_count AS expectedChapterCount,
+      COUNT(DISTINCT v.chapter_number) AS actualChapterCount
+    FROM bible_books b
+    LEFT JOIN bible_verses v
+      ON v.book_id = b.book_id
+      AND v.translation_id = 'KJV'
+    GROUP BY b.book_id, b.book_name, b.chapter_count, b.book_order
+    ORDER BY b.book_order
+  `));
+  const chapterKeys = new Set(rowsFromResult(database.exec("SELECT DISTINCT book_id, chapter_number FROM bible_verses WHERE translation_id = 'KJV'")).map((row) => `${row.book_id}:${row.chapter_number}`));
   const verseStrongCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM bible_verse_strongs'))[0]?.count || 0);
   const lexiconCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM lexicon_entries'))[0]?.count || 0);
   const vinesCount = Number(rowsFromResult(database.exec('SELECT COUNT(*) AS count FROM vines_entries'))[0]?.count || 0);
@@ -56,6 +75,14 @@ async function main() {
   }
   assert.equal(bookCount, Number(metadata.bible_book_count));
   assert.equal(bookCount, 66);
+  assert.equal(chapterCoverage.length, bookCount);
+  assert.equal(chapterCoverage.reduce((total, row) => total + Number(row.expectedChapterCount || 0), 0), 1189);
+  chapterCoverage.forEach((row) => {
+    assert.equal(Number(row.actualChapterCount), Number(row.expectedChapterCount), `${row.bookName} is missing one or more Bible chapters.`);
+    for (let chapter = 1; chapter <= Number(row.expectedChapterCount); chapter += 1) {
+      assert.ok(chapterKeys.has(`${row.bookId}:${chapter}`), `${row.bookName} ${chapter} has no KJV verses.`);
+    }
+  });
   assert.equal(verseCount, Number(metadata.bible_verse_count));
   assert.equal(metadata.database_version, '5');
   assert.equal(verseCount, 31102);

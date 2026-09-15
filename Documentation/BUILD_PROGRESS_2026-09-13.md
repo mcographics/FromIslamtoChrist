@@ -3,9 +3,31 @@
 **Progress date:** 2026-09-14
 **Repository:** `mcographics/FromIslamtoChrist`  
 **Website repository:** `mcographics/mcographics.github.io`  
-**Current application version:** `0.2.27`
+**Current application version:** `0.2.28`
 
-**Current public release:** [From Islam to Christ v0.2.1](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.1)
+**Current public release:** [From Islam to Christ v0.2.27](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.27)
+
+**Latest public release at build start:** [From Islam to Christ v0.2.27](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.27)
+
+## v0.2.28 build continuation — source, packaging, and release boundary — 2026-09-14
+
+- Advanced the local version boundary to `0.2.28` and Android version code `30` for the newly authorized Windows and Android build.
+- The renderer/database build completed three times as part of the Windows and Android commands. Each data-index pass reported 1,566 Data assets, 66 Bible books, 31,102 verses, 14,197 Strong’s entries, 3,369 Vine’s entries, and 12,234 original-language alignments.
+- Windows packaging passed with Electron Builder 26.15.3 and Electron 44.3.0. The installer is [`From-Islam-to-Christ-0.2.28-x64.exe`](../release/From-Islam-to-Christ-0.2.28-x64.exe), 154,492,718 bytes, SHA-256 `3C319A9839263B86B2B75BE407B0A7601775C572BCA5842E027DB1D13056F4A4`. `release/latest.yml` reports version `0.2.28`, the same installer size, and the matching updater SHA-512. Windows Authenticode inspection reports `NotSigned`; this is a locally packaged installer, not a code-signed public Windows release.
+- Android packaging first stopped because the machine defaulted to Java 26 while this Capacitor build requires Java source level 21. The release build then completed successfully with a portable Temurin 21.0.12.1 JDK kept outside the repository. The resulting release-variant APK is [`From-Islam-to-Christ-0.2.28-release-unsigned.apk`](../release/From-Islam-to-Christ-0.2.28-release-unsigned.apk), 42,230,341 bytes, SHA-256 `F95D2FA24F058CAEEB685A8B831C25EB99A5454DA739074D5D227CF65699FABD`. APK metadata reports package `com.mcographics.fromdarknesstolight`, version code `30`, version name `0.2.28`, compile/target SDK 36, and application label `From Islam to Christ`.
+- Android `apksigner verify --verbose` reports `DOES NOT VERIFY` with `Missing META-INF/MANIFEST.MF`, confirming that the local package is release-mode but unsigned. It is intentionally not uploaded to GitHub and cannot be used as an update over the signed public v0.2.27 package. The v0.2.27 public APK was separately confirmed signed with APK v2/v3 for comparison.
+- Build warnings recorded for follow-up: the Vite JavaScript bundle is larger than 500 kB after minification, Electron Builder reports a missing package author field, Android reports `flatDir` repository and SDK XML compatibility warnings, and the local Windows installer is unsigned.
+- The strict content-rights gate remains unchanged. The current manifest reports 0 of 1,566 local assets cleared, so no public v0.2.28 release will be represented as available until that gate and Android production signing are both resolved.
+- GitHub source publication and the companion website update are documented after their respective commits and deployment checks below.
+
+## Unreleased source continuation — multilingual UI and RTL layout — 2026-09-14
+
+- Extended the selected-language foundation so public rendered app text is translated through the in-app automatic translation layer and cached per language. Translation requests exclude private notes, reflections, journal entries, typed searches, custom folder names, and other user-entered private content.
+- Added a visible translation status surface for non-English selections, including queued work, partial/offline fallback, and a retry action. Bible chapter verse lists retry through the same control when a translation request was temporarily unavailable.
+- Added right-to-left document layout for Arabic, Persian, and Urdu and used locally bundled verse variants directly on Home and Saved passages when available. Non-bundled language text remains honest about its online translation dependency.
+- Updated README language and Android artifact guidance to distinguish development debug APKs from release-mode and workflow-signed APKs.
+- Source-only validation passed: all 20 JS/JSX files parsed, the changed services passed `node --check`, `git diff --check` passed, the content database verified with 1,566 source assets / 66 books / 31,102 verses, and all 17 required artwork files were present.
+- No renderer build, Android package, device installation, GitHub push, or public release was performed for this continuation, in accordance with the current no-build instruction. The license audit remains `0 cleared / 1,566 pending review`.
 
 ## v0.2.27 Android Quick close privacy action — 2026-09-14
 

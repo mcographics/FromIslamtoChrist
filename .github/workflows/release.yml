@@ -39,11 +39,52 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Verify content, source coverage, privacy, and release rights
+        run: |
+          npm run verify:review
+          npm run verify:database
+          npm run verify:audio
+          npm run verify:accessibility
+          npm run verify:bible
+          npm run verify:links
+          npm run verify:coverage
+          npm run verify:privacy
+          npm run verify:updates
+          npm run verify:legal
+          npm run verify:licenses -- --release
+          npm run verify:art
+
       - name: Build Windows installer
         run: npm run dist:win
 
-      - name: Build Android test APK
-        run: npm run android:debug
+      - name: Build Android release APK
+        run: npm run android:release
+
+      - name: Sign Android release APK
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:ANDROID_KEYSTORE_BASE64) -or [string]::IsNullOrWhiteSpace($env:ANDROID_KEYSTORE_PASSWORD) -or [string]::IsNullOrWhiteSpace($env:ANDROID_KEY_ALIAS) -or [string]::IsNullOrWhiteSpace($env:ANDROID_KEY_PASSWORD)) {
+            throw 'Android release signing is not configured. Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD repository secrets before tagging a release.'
+          }
+          $releaseVersion = (Get-Content -Raw -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'package.json') | ConvertFrom-Json).version
+          if ("${{ github.ref }}" -like 'refs/tags/v*') { $releaseVersion = "${{ github.ref_name }}".TrimStart('v') }
+          $unsignedApk = Join-Path $env:GITHUB_WORKSPACE 'android/app/build/outputs/apk/release/app-release-unsigned.apk'
+          $androidAsset = Join-Path $env:GITHUB_WORKSPACE "release/From-Islam-to-Christ-$releaseVersion.apk"
+          $keyPath = Join-Path $env:RUNNER_TEMP 'from-islam-to-christ-release.jks'
+          $alignedApk = Join-Path $env:RUNNER_TEMP 'from-islam-to-christ-release-aligned.apk'
+          [IO.File]::WriteAllBytes($keyPath, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+          $buildToolsPath = (Get-ChildItem -LiteralPath (Join-Path $env:ANDROID_HOME 'build-tools') -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
+          & (Join-Path $buildToolsPath 'zipalign.exe') -p -f 4 $unsignedApk $alignedApk
+          if ($LASTEXITCODE -ne 0) { throw 'zipalign failed for the Android release APK.' }
+          & (Join-Path $buildToolsPath 'apksigner.bat') sign --ks $keyPath --ks-key-alias $env:ANDROID_KEY_ALIAS --ks-pass "pass:$env:ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$env:ANDROID_KEY_PASSWORD" --out $androidAsset $alignedApk
+          if ($LASTEXITCODE -ne 0) { throw 'apksigner failed for the Android release APK.' }
+          & (Join-Path $buildToolsPath 'apksigner.bat') verify --verbose $androidAsset
+          if ($LASTEXITCODE -ne 0) { throw 'Android release APK signature verification failed.' }
 
       - name: Publish tagged GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -54,7 +95,6 @@ jobs:
           $releaseTag = "${{ github.ref_name }}"
           $releaseVersion = $releaseTag.TrimStart('v')
           $androidAsset = "release/From-Islam-to-Christ-$releaseVersion.apk"
-          Copy-Item -LiteralPath 'android/app/build/outputs/apk/debug/app-debug.apk' -Destination $androidAsset
           $assets = @($androidAsset)
           $assets += (Get-ChildItem -LiteralPath release -File | Where-Object { $_.Extension -in @('.exe', '.yml', '.blockmap') } | ForEach-Object { $_.FullName })
           $releaseNotes = @"

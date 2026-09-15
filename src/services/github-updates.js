@@ -1,6 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.2.27';
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.2.28';
 export const GITHUB_OWNER = import.meta.env.VITE_GITHUB_OWNER || 'mcographics';
 export const GITHUB_REPOSITORY = import.meta.env.VITE_GITHUB_REPO || 'FromIslamtoChrist';
 export const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPOSITORY}/releases`;
@@ -36,7 +36,13 @@ export function getUpdatePlatform() {
 function pickDownloadAsset(assets, platform) {
   if (!Array.isArray(assets)) return null;
   const names = assets.map((asset) => ({ ...asset, lowerName: String(asset.name || '').toLowerCase() }));
-  if (platform === 'android') return names.find((asset) => asset.lowerName.endsWith('.apk')) || null;
+  if (platform === 'android') {
+    const productionApks = names.filter((asset) => asset.lowerName.endsWith('.apk') && !/(^|[-_.])(debug|unsigned)([-_.]|$)/i.test(asset.lowerName));
+    return productionApks.find((asset) => /^from-islam-to-christ[-_].*\.apk$/i.test(asset.lowerName))
+      || productionApks.find((asset) => asset.lowerName.includes('release'))
+      || productionApks[0]
+      || null;
+  }
   if (platform === 'windows') return names.find((asset) => asset.lowerName.endsWith('.exe')) || names.find((asset) => asset.lowerName.endsWith('.msi')) || null;
   return null;
 }

@@ -14,8 +14,9 @@ import defaultSavedFolders from './data/saved-folders';
 import readingPlans from './data/reading-plans';
 import scriptureTestimonies from './data/scripture-testimonies';
 import studyPacks from './data/study-packs';
+import { LEGAL_APP_INFO, LEGAL_EXTERNAL_SERVICES, LEGAL_RIGHTS_SECTIONS, LEGAL_SOFTWARE_CREDITS, LEGAL_SOURCE_CREDITS, LEGAL_TERMS_SECTIONS } from './data/legal-information';
 import { loadBibleChapter, loadChapterCrossReferences, loadContentDatabase, loadLexiconEntries, loadSavedBibleVerses, loadVerseOfTheDay, searchBibleVerses, searchLexiconEntries, searchResearchEntries } from './services/content-database';
-import { resolveBibleReference } from './services/bible-reference';
+import { findBibleBook, resolveBibleReference } from './services/bible-reference';
 import {
   APP_VERSION,
   GITHUB_RELEASES_URL,
@@ -26,6 +27,8 @@ import {
   openAndroidInstallSettings,
   openUpdateUrl,
 } from './services/github-updates';
+import { BUNDLED_BIBLE_LANGUAGE_IDS, getLanguageCopy, getLanguageOption, isRtlLanguage, LANGUAGE_OPTIONS } from './services/language';
+import { clearAutomaticTranslationCache, getCachedAutomaticTranslation, requestAutomaticTranslation, setAutomaticTranslationOffline, startAutomaticTranslation } from './services/automatic-translation';
 
 const PrivacyShield = registerPlugin('PrivacyShield');
 const BiometricAuth = registerPlugin('BiometricAuth');
@@ -62,12 +65,9 @@ const sectionArt = {
   settings: { src: './images/generated/sections/privacy-settings.webp', alt: 'A closed notebook in a quiet alcove with a small pool of warm light.', label: 'Quiet boundaries and local privacy' },
 };
 
-const bibleTextOptions = [
-  { id: 'en', shortLabel: 'English · KJV', label: 'English (KJV)', language: 'English' },
-  { id: 'bg', shortLabel: 'Български', label: 'Bulgarian', language: 'Bulgarian' },
-  { id: 'ch', shortLabel: '中文', label: 'Chinese', language: 'Chinese' },
-  { id: 'sp', shortLabel: 'Español', label: 'Spanish', language: 'Spanish' },
-];
+const bibleTextOptions = LANGUAGE_OPTIONS;
+const bundledBibleTextOptions = bibleTextOptions.filter((option) => BUNDLED_BIBLE_LANGUAGE_IDS.includes(option.id));
+const BIBLE_CHAPTER_TIMEOUT_MS = 15000;
 
 const researchCollections = [
   { id: 'strongs', group: 'strongs', label: "Strong's", icon: 'scroll', description: 'Greek and Hebrew dictionaries, mappings, and word-study data.' },
@@ -83,6 +83,34 @@ const factsInfoPathHandoffs = [
   { pattern: /Muhammad_and_the_Biblical_Test/i, pathId: 'test-prophetic-claims' },
   { pattern: /The_Case_for_Christ_Against_Quranic_Claims/i, pathId: 'cross-and-resurrection' },
 ];
+
+const LEGAL_LINK_HOSTS = new Set([
+  'github.com',
+  'creativecommons.org',
+  'doi.org',
+  'zenodo.org',
+  'opensource.org',
+  'gnu.org',
+  'www.gnu.org',
+  'mymemory.translated.net',
+  'centerblc.github.io',
+  'annotation.github.io',
+  'etcbc.github.io',
+]);
+
+function openLegalExternalLink(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || !LEGAL_LINK_HOSTS.has(url.hostname.toLowerCase())) return;
+    if (typeof window !== 'undefined' && window.fromDarkness?.openExternal) {
+      window.fromDarkness.openExternal(url.toString()).catch(() => undefined);
+      return;
+    }
+    if (typeof window !== 'undefined') window.open(url.toString(), '_blank', 'noopener,noreferrer');
+  } catch {
+    // Static legal links are allow-listed above; malformed values remain inert.
+  }
+}
 
 const articles = [
   {
@@ -314,6 +342,18 @@ function readLocal(key, fallback) {
   }
 }
 
+function readReaderPreferences() {
+  const stored = readLocal('fdl-reader-preferences', {});
+  const preferences = stored && typeof stored === 'object' && !Array.isArray(stored) ? { ...stored } : {};
+  delete preferences.voiceGender;
+  return {
+    fontScale: 1,
+    tone: 'default',
+    ...preferences,
+    translation: getLanguageOption(preferences.translation).id,
+  };
+}
+
 function readSavedFolderState() {
   const stored = readLocal('fdl-saved-folders', null);
   if (!stored || typeof stored !== 'object') return { folders: defaultSavedFolders, assignments: {} };
@@ -464,7 +504,13 @@ const PRIVATE_STORAGE_KEYS = [
   'fdl-privacy-pin',
   'fdl-biometric-unlock',
   'fdl-onboarding-complete',
+  'fdl-privacy-lockout',
+  'fdl-offline-mode',
 ];
+const PRIVACY_LOCKOUT_STORAGE_KEY = 'fdl-privacy-lockout';
+const PRIVACY_LOCKOUT_THRESHOLD = 5;
+const PRIVACY_LOCKOUT_BASE_MS = 30 * 1000;
+const PRIVACY_LOCKOUT_MAX_MS = 5 * 60 * 1000;
 const PRIVACY_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 function bytesToBase64(bytes) {
@@ -476,6 +522,22 @@ function bytesToBase64(bytes) {
 function base64ToBytes(value) {
   const binary = window.atob(value);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function readPrivacyLockout() {
+  const stored = readLocal(PRIVACY_LOCKOUT_STORAGE_KEY, {});
+  const failures = Number(stored?.failures);
+  const lockedUntil = Number(stored?.lockedUntil);
+  return {
+    failures: Number.isFinite(failures) ? Math.max(0, Math.floor(failures)) : 0,
+    lockedUntil: Number.isFinite(lockedUntil) ? Math.max(0, Math.floor(lockedUntil)) : 0,
+  };
+}
+
+function privacyLockoutDelay(failures) {
+  if (failures < PRIVACY_LOCKOUT_THRESHOLD) return 0;
+  const escalation = Math.min(failures - PRIVACY_LOCKOUT_THRESHOLD, 3);
+  return Math.min(PRIVACY_LOCKOUT_MAX_MS, PRIVACY_LOCKOUT_BASE_MS * (2 ** escalation));
 }
 
 async function hashPrivacyPin(pin, salt) {
@@ -512,12 +574,14 @@ function App() {
   const [studyPackProgress, setStudyPackProgress] = useState(readStudyPackProgress);
   const [factsPathProgress, setFactsPathProgress] = useState(readFactsPathProgress);
   const [questionProgress, setQuestionProgress] = useState(readQuestionProgress);
-  const [readerPreferences, setReaderPreferences] = useState(() => readLocal('fdl-reader-preferences', { fontScale: 1, tone: 'default', translation: 'en' }));
+  const [readerPreferences, setReaderPreferences] = useState(readReaderPreferences);
   const [completedLessons, setCompletedLessons] = useState(() => readLocal('fdl-completed-lessons', [1]));
   const [discreetMode, setDiscreetMode] = useState(() => readLocal('fdl-discreet-mode', true));
   const [theme, setTheme] = useState(() => readLocal('fdl-theme', 'light'));
   const [privacyPin, setPrivacyPin] = useState(() => readLocal('fdl-privacy-pin', null));
   const [privacyLocked, setPrivacyLocked] = useState(() => Boolean(readLocal('fdl-privacy-pin', null)));
+  const [privacyLockout, setPrivacyLockout] = useState(readPrivacyLockout);
+  const [offlineMode, setOfflineMode] = useState(() => readLocal('fdl-offline-mode', false) === true);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(() => readLocal('fdl-biometric-unlock', false));
   const [onboardingComplete, setOnboardingComplete] = useState(() => readLocal('fdl-onboarding-complete', false));
@@ -542,8 +606,14 @@ function App() {
   const [bibleLocation, setBibleLocation] = useState(() => readLocal('fdl-bible-location', { bookId: 'JHN', chapter: 1 }));
   const [bibleHistory, setBibleHistory] = useState(readBibleHistory);
   const [bibleChapterLoading, setBibleChapterLoading] = useState(false);
+  const [bibleChapterError, setBibleChapterError] = useState('');
+  const [bibleChapterAttempt, setBibleChapterAttempt] = useState(0);
+  const bibleChapterRequestRef = useRef(0);
+  const [bibleFocusTarget, setBibleFocusTarget] = useState(null);
   const [dailyVerse, setDailyVerse] = useState(null);
   const [contentDatabase, setContentDatabase] = useState({ status: 'loading', sourceAssetCount: 0, contentVersion: APP_VERSION, bibleBooks: [], bibleVerses: [] });
+  const [contentDatabaseAttempt, setContentDatabaseAttempt] = useState(0);
+  const [translationStatus, setTranslationStatus] = useState({ status: 'idle', pending: 0 });
 
   useEffect(() => window.localStorage.setItem('fdl-active-view', JSON.stringify(activeView)), [activeView]);
   useEffect(() => window.localStorage.setItem('fdl-bookmarks', JSON.stringify(bookmarks)), [bookmarks]);
@@ -562,9 +632,28 @@ function App() {
   useEffect(() => window.localStorage.setItem('fdl-facts-path-progress', JSON.stringify(factsPathProgress)), [factsPathProgress]);
   useEffect(() => window.localStorage.setItem('fdl-question-progress', JSON.stringify(questionProgress)), [questionProgress]);
   useEffect(() => window.localStorage.setItem('fdl-reader-preferences', JSON.stringify(readerPreferences)), [readerPreferences]);
+  useEffect(() => {
+    const language = getLanguageOption(readerPreferences?.translation);
+    document.documentElement.lang = language.locale;
+    document.documentElement.dir = isRtlLanguage(language.id) ? 'rtl' : 'ltr';
+    setAutomaticTranslationOffline(offlineMode);
+    setTranslationStatus(language.id === 'en' ? { status: 'idle', pending: 0 } : offlineMode ? { status: 'offline', pending: 0 } : { status: 'starting', pending: 0 });
+    const handleTranslationStatus = (event) => {
+      if (event.detail?.languageId === language.id) setTranslationStatus(event.detail);
+    };
+    window.addEventListener('fdl-translation-status', handleTranslationStatus);
+    window.dispatchEvent(new CustomEvent('fdl-language-change', { detail: language.id }));
+    const stopAutomaticTranslation = startAutomaticTranslation(language.id);
+    return () => {
+      window.removeEventListener('fdl-translation-status', handleTranslationStatus);
+      stopAutomaticTranslation();
+    };
+  }, [offlineMode, readerPreferences?.translation]);
   useEffect(() => window.localStorage.setItem('fdl-completed-lessons', JSON.stringify(completedLessons)), [completedLessons]);
   useEffect(() => window.localStorage.setItem('fdl-discreet-mode', JSON.stringify(discreetMode)), [discreetMode]);
   useEffect(() => window.localStorage.setItem('fdl-theme', JSON.stringify(theme)), [theme]);
+  useEffect(() => window.localStorage.setItem(PRIVACY_LOCKOUT_STORAGE_KEY, JSON.stringify(privacyLockout)), [privacyLockout]);
+  useEffect(() => window.localStorage.setItem('fdl-offline-mode', JSON.stringify(offlineMode)), [offlineMode]);
   useEffect(() => window.localStorage.setItem('fdl-bible-location', JSON.stringify(bibleLocation)), [bibleLocation]);
   useEffect(() => window.localStorage.setItem('fdl-bible-history', JSON.stringify(bibleHistory)), [bibleHistory]);
   useEffect(() => window.localStorage.setItem('fdl-onboarding-complete', JSON.stringify(onboardingComplete)), [onboardingComplete]);
@@ -611,6 +700,24 @@ function App() {
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, armLockTimer));
     };
   }, [privacyPin, privacyLocked]);
+
+  const runtimeVerses = contentDatabase.bibleVerses?.length ? contentDatabase.bibleVerses : fallbackVerses;
+  const runtimeBooks = contentDatabase.bibleBooks?.length ? contentDatabase.bibleBooks : [{ id: 'JHN', name: 'John', abbreviation: 'Jhn', bookOrder: 43, chapterCount: 1 }];
+  const runtimeBibleLocation = (() => {
+    const selectedBook = runtimeBooks.find((book) => book.id === bibleLocation?.bookId) || runtimeBooks[0];
+    const chapterCount = Number(selectedBook?.chapterCount) || 1;
+    return {
+      bookId: selectedBook?.id || 'JHN',
+      chapter: Math.min(Math.max(1, Number(bibleLocation?.chapter) || 1), chapterCount),
+    };
+  })();
+
+  useEffect(() => {
+    if (contentDatabase.status !== 'ready' || !runtimeBibleLocation.bookId) return;
+    if (bibleLocation?.bookId === runtimeBibleLocation.bookId && Number(bibleLocation?.chapter) === runtimeBibleLocation.chapter) return;
+    setBibleLocation(runtimeBibleLocation);
+  }, [contentDatabase.status, runtimeBibleLocation.bookId, runtimeBibleLocation.chapter, bibleLocation?.bookId, bibleLocation?.chapter]);
+
   useEffect(() => {
     let active = true;
     loadContentDatabase()
@@ -621,27 +728,50 @@ function App() {
         if (active) setContentDatabase({ status: 'error', sourceAssetCount: 0, contentVersion: APP_VERSION, bibleVerses: [], errorMessage: error?.message || 'Database unavailable.' });
       });
     return () => { active = false; };
-  }, []);
+  }, [contentDatabaseAttempt]);
 
   useEffect(() => {
     if (contentDatabase.status !== 'ready') return undefined;
+    const requestedLocation = runtimeBibleLocation;
     const loadedLocation = contentDatabase.bibleLocation;
-    if (loadedLocation?.bookId === bibleLocation.bookId && loadedLocation?.chapter === bibleLocation.chapter) return undefined;
+    if (loadedLocation?.bookId === requestedLocation.bookId && loadedLocation?.chapter === requestedLocation.chapter && contentDatabase.bibleVerses?.length) {
+      setBibleChapterLoading(false);
+      setBibleChapterError('');
+      return undefined;
+    }
     let active = true;
+    const requestId = bibleChapterRequestRef.current + 1;
+    bibleChapterRequestRef.current = requestId;
+    const isCurrentRequest = () => active && bibleChapterRequestRef.current === requestId;
+    const timeoutId = window.setTimeout(() => {
+      if (!isCurrentRequest()) return;
+      active = false;
+      setBibleChapterLoading(false);
+      const requestedBook = runtimeBooks.find((book) => book.id === requestedLocation.bookId);
+      setBibleChapterError(`The ${requestedBook?.name || requestedLocation.bookId} ${requestedLocation.chapter} chapter took too long to open. Please try again.`);
+    }, BIBLE_CHAPTER_TIMEOUT_MS);
     setBibleChapterLoading(true);
-    loadBibleChapter(bibleLocation.bookId, bibleLocation.chapter)
+    setBibleChapterError('');
+    loadBibleChapter(requestedLocation.bookId, requestedLocation.chapter)
       .then((verses) => {
-        if (!active) return;
-        setContentDatabase((current) => ({ ...current, bibleLocation, bibleVerses: verses }));
+        if (!isCurrentRequest()) return;
+        if (!verses.length) {
+          throw new Error(`No verses were found for ${requestedLocation.bookId} ${requestedLocation.chapter}.`);
+        }
+        setContentDatabase((current) => ({ ...current, bibleLocation: requestedLocation, bibleVerses: verses }));
       })
-      .catch(() => {
-        if (active) setBibleChapterLoading(false);
+      .catch((error) => {
+        if (isCurrentRequest()) setBibleChapterError(error?.message || 'This Bible chapter could not be opened.');
       })
       .finally(() => {
-        if (active) setBibleChapterLoading(false);
+        window.clearTimeout(timeoutId);
+        if (isCurrentRequest()) setBibleChapterLoading(false);
       });
-    return () => { active = false; };
-  }, [contentDatabase.status, contentDatabase.bibleLocation?.bookId, contentDatabase.bibleLocation?.chapter, bibleLocation.bookId, bibleLocation.chapter]);
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [contentDatabase.status, contentDatabase.bibleLocation?.bookId, contentDatabase.bibleLocation?.chapter, contentDatabase.bibleVerses?.length, runtimeBibleLocation.bookId, runtimeBibleLocation.chapter, bibleChapterAttempt]);
 
   useEffect(() => {
     if (contentDatabase.status !== 'ready') return undefined;
@@ -693,6 +823,11 @@ function App() {
   }
 
   async function checkForUpdates() {
+    if (offlineMode) {
+      const nextState = { status: 'offline', currentVersion: APP_VERSION, platform: getUpdatePlatform() };
+      setUpdateState(nextState);
+      return nextState;
+    }
     setUpdateState((current) => ({ ...current, status: 'checking' }));
     try {
       if (window.fromDarkness?.checkForUpdate) {
@@ -714,21 +849,25 @@ function App() {
 
   useEffect(() => {
     let removeUpdateListener;
-    if (window.fromDarkness?.onUpdateStatus) removeUpdateListener = window.fromDarkness.onUpdateStatus((status) => setUpdateState((current) => ({ ...current, ...status })));
-    checkForUpdates();
+    if (!offlineMode && window.fromDarkness?.onUpdateStatus) removeUpdateListener = window.fromDarkness.onUpdateStatus((status) => setUpdateState((current) => ({ ...current, ...status })));
+    if (offlineMode) {
+      setUpdateState({ status: 'offline', currentVersion: APP_VERSION, platform: getUpdatePlatform() });
+    } else {
+      checkForUpdates();
+    }
     return () => removeUpdateListener?.();
-  }, []);
+  }, [offlineMode]);
 
   const currentTitle = useMemo(() => {
     if (selectedArticle) return selectedArticle.title;
-    return navigation.find((item) => item.id === activeView)?.label || 'Home';
-  }, [activeView, selectedArticle]);
+    const item = navigation.find((candidate) => candidate.id === activeView);
+    return getLanguageCopy(readerPreferences?.translation, `nav.${item?.id}`, item?.label || 'Home');
+  }, [activeView, readerPreferences?.translation, selectedArticle]);
 
-  const runtimeVerses = contentDatabase.bibleVerses?.length ? contentDatabase.bibleVerses : fallbackVerses;
-  const runtimeBooks = contentDatabase.bibleBooks?.length ? contentDatabase.bibleBooks : [{ id: 'JHN', name: 'John', abbreviation: 'Jhn', bookOrder: 43, chapterCount: 1 }];
+  const selectedLanguage = getLanguageOption(readerPreferences?.translation);
 
   useEffect(() => {
-    if (!pendingBibleReference || contentDatabase.status === 'loading') return undefined;
+    if (!pendingBibleReference || contentDatabase.status !== 'ready') return undefined;
     const targetLocation = resolveBibleReference(pendingBibleReference, runtimeBooks);
     if (targetLocation) {
       setSearchTerm(pendingBibleReference);
@@ -753,8 +892,23 @@ function App() {
 
   function navigate(view) {
     setSelectedArticle(null);
+    if (view !== 'learn') {
+      setLearnFocusPathId(null);
+      setLearnFocusStudyPackId(null);
+    }
+    if (view !== 'bible') setBibleFocusTarget(null);
     setActiveView(view);
     setMobileMenuOpen(false);
+  }
+
+  function openBibleFocus(target) {
+    if (!['read', 'audio', 'word-study'].includes(target)) return;
+    setBibleFocusTarget(target);
+    navigate('bible');
+  }
+
+  function openLibraryBibleDestination(target) {
+    openBibleFocus(target === 'word-study' ? 'word-study' : 'read');
   }
 
   function openLibraryGroup(groupName, query = '') {
@@ -894,6 +1048,7 @@ function App() {
 
   function openStudyPack(packId) {
     if (!studyPacks.some((pack) => pack.id === packId)) return;
+    setLearnFocusPathId(null);
     setLearnFocusStudyPackId(packId);
     navigate('learn');
   }
@@ -910,6 +1065,7 @@ function App() {
       return;
     }
     if (resource.type === 'path') {
+      setLearnFocusStudyPackId(null);
       setLearnFocusPathId(resource.target);
       navigate('learn');
       return;
@@ -977,6 +1133,7 @@ function App() {
       return;
     }
     if (step.type === 'path') {
+      setLearnFocusStudyPackId(null);
       setLearnFocusPathId(step.target);
       navigate('learn');
       return;
@@ -1017,23 +1174,39 @@ function App() {
   }
 
   function changeBibleLocation(nextLocation) {
+    const nextBook = runtimeBooks.find((book) => book.id === nextLocation?.bookId);
+    if (!nextBook) return;
+    const nextChapter = Math.min(Math.max(1, Number(nextLocation.chapter) || 1), Number(nextBook.chapterCount) || 1);
     setSearchTerm('');
-    setBibleLocation(nextLocation);
+    setBibleChapterError('');
+    setBibleFocusTarget(null);
+    setBibleLocation({ bookId: nextBook.id, chapter: nextChapter });
+  }
+
+  function retryBibleChapter() {
+    setBibleChapterError('');
+    setBibleChapterAttempt((current) => current + 1);
   }
 
   function openBibleReference(reference) {
     const targetLocation = resolveBibleReference(reference, runtimeBooks);
     if (targetLocation) {
       setSearchTerm(reference);
+      setBibleFocusTarget(null);
       setBibleLocation(targetLocation);
       setPendingBibleReference(null);
-    } else if (contentDatabase.status === 'loading') {
+    } else if (contentDatabase.status !== 'ready') {
       setSearchTerm(reference);
       setPendingBibleReference(reference);
     }
     setSelectedArticle(null);
     setActiveView('bible');
     setMobileMenuOpen(false);
+  }
+
+  function retryContentDatabase() {
+    setContentDatabase((current) => ({ ...current, status: 'loading', errorMessage: null }));
+    setContentDatabaseAttempt((current) => current + 1);
   }
 
   function openGlobalBibleResult(result) {
@@ -1074,6 +1247,7 @@ function App() {
       window.localStorage.setItem('fdl-privacy-pin', JSON.stringify(credential));
       setPrivacyPin(credential);
       setPrivacyLocked(false);
+      setPrivacyLockout({ failures: 0, lockedUntil: 0 });
       return { ok: true };
     } catch (error) {
       return { ok: false, message: error?.message || 'This device could not create a local PIN.' };
@@ -1083,8 +1257,10 @@ function App() {
   function disablePrivacyLock() {
     window.localStorage.removeItem('fdl-privacy-pin');
     window.localStorage.removeItem('fdl-biometric-unlock');
+    window.localStorage.removeItem(PRIVACY_LOCKOUT_STORAGE_KEY);
     setPrivacyPin(null);
     setBiometricEnabled(false);
+    setPrivacyLockout({ failures: 0, lockedUntil: 0 });
     setPrivacyLocked(false);
   }
 
@@ -1106,6 +1282,7 @@ function App() {
     try {
       const result = await BiometricAuth.authenticate();
       if (result?.authenticated) {
+        setPrivacyLockout({ failures: 0, lockedUntil: 0 });
         setPrivacyLocked(false);
         return true;
       }
@@ -1143,8 +1320,21 @@ function App() {
     }
   }
 
+  function registerPrivacyFailure() {
+    setPrivacyLockout((current) => {
+      const failures = Math.max(0, Number(current?.failures) || 0) + 1;
+      const delay = privacyLockoutDelay(failures);
+      return { failures, lockedUntil: delay ? Date.now() + delay : 0 };
+    });
+  }
+
+  function clearPrivacyLockout() {
+    setPrivacyLockout({ failures: 0, lockedUntil: 0 });
+  }
+
   function deletePrivateData() {
     PRIVATE_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+    clearAutomaticTranslationCache();
     setActiveView('home');
     setSelectedArticle(null);
     setBookmarks(['verse-john-1-1']);
@@ -1174,6 +1364,8 @@ function App() {
     setBibleHistory([]);
     setPrivacyPin(null);
     setBiometricEnabled(false);
+    setPrivacyLockout({ failures: 0, lockedUntil: 0 });
+    setOfflineMode(false);
     setPrivacyLocked(false);
     setOnboardingComplete(false);
   }
@@ -1215,7 +1407,7 @@ function App() {
   }
 
   if (privacyPin && privacyLocked) {
-    return <div className={`app-shell theme-${theme}`}><PrivacyLockScreen discreetMode={discreetMode} biometricEnabled={biometricEnabled} biometricAvailable={biometricAvailable} onBiometricUnlock={unlockWithBiometric} onUnlock={async (pin) => { const unlocked = await unlockPrivacyLock(pin); if (unlocked) setPrivacyLocked(false); return unlocked; }} /></div>;
+    return <div className={`app-shell theme-${theme}`}><PrivacyLockScreen discreetMode={discreetMode} lockout={privacyLockout} biometricEnabled={biometricEnabled} biometricAvailable={biometricAvailable} onFailedAttempt={registerPrivacyFailure} onBiometricUnlock={unlockWithBiometric} onUnlock={async (pin) => { const unlocked = await unlockPrivacyLock(pin); if (unlocked) { clearPrivacyLockout(); setPrivacyLocked(false); } return unlocked; }} /></div>;
   }
 
   if (!onboardingComplete) {
@@ -1235,7 +1427,7 @@ function App() {
         <div className="sidebar-rule" />
         <nav className="side-nav" aria-label="Primary navigation">
           {navigation.map((item) => (
-            <NavButton key={item.id} item={item} active={activeView === item.id && !selectedArticle} onClick={() => navigate(item.id)} />
+            <NavButton key={item.id} item={item} languageId={selectedLanguage.id} active={activeView === item.id && !selectedArticle} onClick={() => navigate(item.id)} />
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -1258,30 +1450,31 @@ function App() {
           </div>
         </header>
 
-        {mobileMenuOpen && <MobileDrawer activeView={activeView} selectedArticle={selectedArticle} theme={theme} setTheme={setTheme} onNavigate={navigate} onClose={() => setMobileMenuOpen(false)} />}
+        {mobileMenuOpen && <MobileDrawer activeView={activeView} selectedArticle={selectedArticle} languageId={selectedLanguage.id} theme={theme} setTheme={setTheme} onNavigate={navigate} onClose={() => setMobileMenuOpen(false)} />}
         {(updateState.status === 'available' || updateState.status === 'downloading' || updateState.status === 'downloaded' || updateState.status === 'permission-required') && <UpdateBanner updateState={updateState} onAction={handleUpdateAction} />}
+        {selectedLanguage.id !== 'en' && <TranslationStatus language={selectedLanguage} translationStatus={translationStatus} offlineMode={offlineMode} onRetry={() => window.dispatchEvent(new CustomEvent('fdl-translation-retry', { detail: { languageId: selectedLanguage.id } }))} />}
 
         <div className="page-content">
           {selectedArticle ? (
             <ArticleDetail article={selectedArticle} onBack={() => setSelectedArticle(null)} bookmarks={bookmarks} toggleBookmark={toggleBookmark} navigate={navigate} onOpenReference={openBibleReference} onOpenArticle={openArticle} questionProgress={questionProgress} onToggleQuestionProgress={toggleQuestionProgress} />
           ) : (
             <>
-              {activeView === 'home' && <Home onNavigate={navigate} onOpenArticle={openArticle} onOpenBibleReference={openBibleReference} onOpenJourneyLesson={openJourneyLesson} bookmarks={bookmarks} toggleBookmark={toggleBookmark} completedLessons={completedLessons} bibleLocation={bibleLocation} bibleHistory={bibleHistory} books={runtimeBooks} dailyVerse={dailyVerse} studyPlan={studyPlan} onSelectStudyFocus={selectStudyFocus} onToggleStudyStep={toggleStudyStep} onOpenStudyStep={openStudyStep} readingPlanState={readingPlanState} onSelectReadingPlan={selectReadingPlan} onToggleReadingPlanStep={toggleReadingPlanStep} onOpenReadingPlanStep={openReadingPlanStep} factsPathProgress={factsPathProgress} onOpenFactsPath={openFactsPath} />}
-              {activeView === 'bible' && <Bible verses={runtimeVerses} books={runtimeBooks} location={bibleLocation} onChangeLocation={changeBibleLocation} loading={bibleChapterLoading} searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} highlights={highlights} toggleHighlight={toggleHighlight} notes={notes} saveNote={saveNote} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} completedLessons={completedLessons} toggleLesson={toggleLesson} />}
-              {activeView === 'learn' && <Learn articles={allArticles} sourceAssets={contentDatabase.sourceAssets || []} onOpenArticle={openArticle} onOpenLibraryGroup={openLibraryGroup} onOpenReference={openBibleReference} onOpenBible={() => navigate('bible')} onOpenDownloads={() => navigate('downloads')} onSaveGuide={saveDownloadedGuide} initialPathId={learnFocusPathId} studyPacks={studyPacks} savedStudyPacks={savedStudyPacks} onToggleStudyPack={toggleSavedStudyPack} completedResourcesByPack={studyPackProgress} onToggleStudyPackResource={toggleStudyPackResource} completedSectionsByPath={factsPathProgress} onToggleFactsPathSection={toggleFactsPathSection} questionProgress={questionProgress} onToggleQuestionProgress={toggleQuestionProgress} onOpenStudyPackResource={openStudyPackResource} initialStudyPackId={learnFocusStudyPackId} />}
+              {activeView === 'home' && <Home onNavigate={navigate} onOpenArticle={openArticle} onOpenBibleReference={openBibleReference} onOpenJourneyLesson={openJourneyLesson} bookmarks={bookmarks} toggleBookmark={toggleBookmark} completedLessons={completedLessons} bibleLocation={bibleLocation} bibleHistory={bibleHistory} books={runtimeBooks} dailyVerse={dailyVerse} languageId={selectedLanguage.id} studyPlan={studyPlan} onSelectStudyFocus={selectStudyFocus} onToggleStudyStep={toggleStudyStep} onOpenStudyStep={openStudyStep} readingPlanState={readingPlanState} onSelectReadingPlan={selectReadingPlan} onToggleReadingPlanStep={toggleReadingPlanStep} onOpenReadingPlanStep={openReadingPlanStep} factsPathProgress={factsPathProgress} onOpenFactsPath={openFactsPath} />}
+              {activeView === 'bible' && <Bible verses={runtimeVerses} books={runtimeBooks} location={runtimeBibleLocation} onChangeLocation={changeBibleLocation} loading={contentDatabase.status === 'loading' || bibleChapterLoading} focusTarget={bibleFocusTarget} onFocusTargetHandled={() => setBibleFocusTarget(null)} chapterError={bibleChapterError} onRetryChapter={retryBibleChapter} databaseStatus={contentDatabase.status} databaseError={contentDatabase.errorMessage} onRetryDatabase={retryContentDatabase} searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} highlights={highlights} toggleHighlight={toggleHighlight} notes={notes} saveNote={saveNote} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} completedLessons={completedLessons} toggleLesson={toggleLesson} />}
+              {activeView === 'learn' && <Learn articles={allArticles} sourceAssets={contentDatabase.sourceAssets || []} onOpenArticle={openArticle} onOpenLibraryGroup={openLibraryGroup} onOpenReference={openBibleReference} onOpenBible={() => openBibleFocus('audio')} onOpenDownloads={() => navigate('downloads')} onSaveGuide={saveDownloadedGuide} initialPathId={learnFocusPathId} studyPacks={studyPacks} savedStudyPacks={savedStudyPacks} onToggleStudyPack={toggleSavedStudyPack} completedResourcesByPack={studyPackProgress} onToggleStudyPackResource={toggleStudyPackResource} completedSectionsByPath={factsPathProgress} onToggleFactsPathSection={toggleFactsPathSection} questionProgress={questionProgress} onToggleQuestionProgress={toggleQuestionProgress} onOpenStudyPackResource={openStudyPackResource} initialStudyPackId={learnFocusStudyPackId} />}
               {activeView === 'prayer' && <Prayer entries={prayerEntries} onSaveEntry={savePrayerEntry} onToggleEntry={togglePrayerEntryStatus} onDeleteEntry={deletePrayerEntry} onOpenReference={openBibleReference} />}
               {activeView === 'journey' && <Journey completedLessons={completedLessons} toggleLesson={toggleLesson} bookmarks={bookmarks} toggleBookmark={toggleBookmark} reflections={journeyReflections} onSaveReflection={saveJourneyReflection} onNavigate={navigate} onOpenReference={openBibleReference} initialLessonId={journeyFocusLessonId} />}
               {activeView === 'faith' && <Faith progress={faithProgress} selectedDayId={faithSelectedDayId} onSelectDay={setFaithSelectedDayId} onStart={startFaithPath} onToggleDay={toggleFaithDay} onSaveTestimony={saveFaithTestimony} onNavigate={navigate} onOpenReference={openBibleReference} onOpenArticle={openArticle} />}
-              {activeView === 'saved' && <Saved verses={runtimeVerses} bookmarks={bookmarks} highlights={highlights} notes={notes} journeyReflections={journeyReflections} savedStudyPacks={savedStudyPacks} toggleBookmark={toggleBookmark} toggleHighlight={toggleHighlight} saveNote={saveNote} onOpenArticle={openArticle} onOpenLesson={openJourneyLesson} onOpenReference={openBibleReference} onOpenStudyPack={openStudyPack} onToggleStudyPack={toggleSavedStudyPack} navigate={navigate} savedFolders={savedFolderState.folders} savedFolderAssignments={savedFolderState.assignments} onCreateFolder={createSavedFolder} onDeleteFolder={deleteSavedFolder} onAssignFolder={assignSavedItem} />}
+              {activeView === 'saved' && <Saved verses={runtimeVerses} languageId={selectedLanguage.id} bookmarks={bookmarks} highlights={highlights} notes={notes} journeyReflections={journeyReflections} savedStudyPacks={savedStudyPacks} toggleBookmark={toggleBookmark} toggleHighlight={toggleHighlight} saveNote={saveNote} onOpenArticle={openArticle} onOpenLesson={openJourneyLesson} onOpenReference={openBibleReference} onOpenStudyPack={openStudyPack} onToggleStudyPack={toggleSavedStudyPack} navigate={navigate} savedFolders={savedFolderState.folders} savedFolderAssignments={savedFolderState.assignments} onCreateFolder={createSavedFolder} onDeleteFolder={deleteSavedFolder} onAssignFolder={assignSavedItem} />}
               {activeView === 'downloads' && <Downloads guides={downloadedGuides} onOpenPack={openStudyPack} onOpenLearn={() => navigate('learn')} onRemove={removeDownloadedGuide} />}
-              {activeView === 'library' && <Library assets={contentDatabase.sourceAssets || []} groups={contentDatabase.groups || []} initialGroup={libraryGroup} initialQuery={libraryQuery} onOpenLearn={() => navigate('learn')} onOpenFactsPath={openFactsPath} onOpenBible={() => navigate('bible')} />}
-              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} theme={theme} setTheme={setTheme} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} onUpdateAction={handleUpdateAction} contentDatabase={contentDatabase} onOpenLibrary={() => navigate('library')} privacyPinEnabled={Boolean(privacyPin)} biometricAvailable={biometricAvailable} biometricEnabled={biometricEnabled} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onEnableBiometric={enableBiometricUnlock} onDisableBiometric={() => setBiometricEnabled(false)} onLockApp={lockApp} onQuickClose={quickCloseApp} onDeletePrivateData={deletePrivateData} onShowOnboarding={() => setOnboardingComplete(false)} />}
+              {activeView === 'library' && <Library assets={contentDatabase.sourceAssets || []} groups={contentDatabase.groups || []} initialGroup={libraryGroup} initialQuery={libraryQuery} onOpenLearn={() => navigate('learn')} onOpenFactsPath={openFactsPath} onOpenBible={openLibraryBibleDestination} />}
+              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} offlineMode={offlineMode} setOfflineMode={setOfflineMode} theme={theme} setTheme={setTheme} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} onUpdateAction={handleUpdateAction} contentDatabase={contentDatabase} onOpenLibrary={() => navigate('library')} privacyPinEnabled={Boolean(privacyPin)} biometricAvailable={biometricAvailable} biometricEnabled={biometricEnabled} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onEnableBiometric={enableBiometricUnlock} onDisableBiometric={() => setBiometricEnabled(false)} onLockApp={lockApp} onQuickClose={quickCloseApp} onDeletePrivateData={deletePrivateData} onShowOnboarding={() => setOnboardingComplete(false)} />}
             </>
           )}
         </div>
-        <BottomNav activeView={activeView} selectedArticle={selectedArticle} onNavigate={navigate} />
+        <BottomNav activeView={activeView} selectedArticle={selectedArticle} languageId={selectedLanguage.id} onNavigate={navigate} />
       </main>
-      {globalSearchOpen && <GlobalSearch articles={allArticles} lessons={lessons} sourceAssets={contentDatabase.sourceAssets || []} books={runtimeBooks} onClose={() => setGlobalSearchOpen(false)} onOpenBible={openGlobalBibleResult} onOpenArticle={openGlobalArticle} onOpenLibrary={openGlobalLibraryResult} onOpenStudyPack={(packId) => { openStudyPack(packId); setGlobalSearchOpen(false); }} onOpenFactsPath={(pathId) => { setLearnFocusPathId(pathId); navigate('learn'); setGlobalSearchOpen(false); }} onNavigate={(view) => { navigate(view); setGlobalSearchOpen(false); }} />}
+      {globalSearchOpen && <GlobalSearch articles={allArticles} lessons={lessons} sourceAssets={contentDatabase.sourceAssets || []} books={runtimeBooks} onClose={() => setGlobalSearchOpen(false)} onOpenBible={openGlobalBibleResult} onOpenArticle={openGlobalArticle} onOpenLibrary={openGlobalLibraryResult} onOpenStudyPack={(packId) => { openStudyPack(packId); setGlobalSearchOpen(false); }} onOpenFactsPath={(pathId) => { openFactsPath(pathId); setGlobalSearchOpen(false); }} onNavigate={(view) => { navigate(view); setGlobalSearchOpen(false); }} />}
     </div>
   );
 }
@@ -1393,14 +1586,17 @@ function NeutralStartupScreen({ onEnter }) {
   );
 }
 
-function MobileDrawer({ activeView, selectedArticle, theme, setTheme, onNavigate, onClose }) {
+function MobileDrawer({ activeView, selectedArticle, languageId = 'en', theme, setTheme, onNavigate, onClose }) {
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, onClose);
+
   return (
     <div className="mobile-drawer-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <aside className="mobile-drawer" role="dialog" aria-label="Navigation menu">
+      <aside ref={dialogRef} className="mobile-drawer" role="dialog" aria-modal="true" aria-label="Navigation menu" tabIndex="-1">
         <div className="mobile-drawer-header"><div className="mobile-drawer-brand"><span>From Islam</span><strong>to Christ</strong></div><button className="icon-button" type="button" onClick={onClose} aria-label="Close navigation"><Icon name="close" size={18} /></button></div>
         <nav className="mobile-drawer-nav" aria-label="Mobile navigation menu">
-          {navigation.map((item) => <NavButton key={item.id} item={item} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}
-          <button className={`nav-button ${activeView === 'settings' && !selectedArticle ? 'active' : ''}`} type="button" onClick={() => onNavigate('settings')}><Icon name="shield" size={19} /><span>Privacy & settings</span>{activeView === 'settings' && !selectedArticle && <span className="nav-dot" />}</button>
+          {navigation.map((item) => <NavButton key={item.id} item={item} languageId={languageId} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}
+          <button className={`nav-button ${activeView === 'settings' && !selectedArticle ? 'active' : ''}`} type="button" onClick={() => onNavigate('settings')}><Icon name="shield" size={19} /><span>{getLanguageCopy(languageId, 'nav.settings', 'Privacy & settings')}</span>{activeView === 'settings' && !selectedArticle && <span className="nav-dot" />}</button>
         </nav>
         <div className="mobile-drawer-footer">
           <button className="drawer-theme-button" type="button" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}><Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} /><span>Use {theme === 'light' ? 'dark' : 'light'} mode</span></button>
@@ -1426,8 +1622,32 @@ function UpdateBanner({ updateState, onAction }) {
       ? `${updateState.percent || 0}% downloaded inside the app from GitHub.`
       : `Version ${updateState.version || updateState.latestVersion} is available from GitHub.`;
   const actionLabel = isDownloaded ? 'Install update' : needsPermission ? 'Allow installs' : isDownloading ? `${updateState.percent || 0}%` : isAndroid ? 'Download update' : 'Downloading…';
+  const showAction = isAndroid ? !isDownloading : platform === 'windows' ? isDownloaded : true;
 
-  return <section className="update-banner" role="status"><span className="update-banner-icon"><Icon name={isDownloaded ? 'check' : needsPermission ? 'lock' : 'sparkles'} size={18} /></span><span className="update-banner-copy"><strong>{title}</strong><small>{detail}</small></span>{(!isDownloading || isDownloaded) && <button className="update-banner-button" type="button" onClick={onAction}>{actionLabel}<Icon name="arrow" size={14} /></button>}{isDownloading && <span className="update-banner-progress">{actionLabel}</span>}</section>;
+  return <section className="update-banner" role="status"><span className="update-banner-icon"><Icon name={isDownloaded ? 'check' : needsPermission ? 'lock' : 'sparkles'} size={18} /></span><span className="update-banner-copy"><strong>{title}</strong><small>{detail}</small></span>{showAction && <button className="update-banner-button" type="button" onClick={onAction}>{actionLabel}<Icon name="arrow" size={14} /></button>}{isDownloading && <span className="update-banner-progress">{actionLabel}</span>}</section>;
+}
+
+function TranslationStatus({ language, translationStatus = {}, onRetry, offlineMode = false }) {
+  const status = translationStatus.status || 'starting';
+  const pending = Number(translationStatus.pending) || 0;
+  const failed = Number(translationStatus.failed) || 0;
+  const isOffline = offlineMode || status === 'offline';
+  const isWorking = !isOffline && (status === 'starting' || status === 'translating');
+  const title = isOffline
+    ? 'Offline-only language mode'
+    : isWorking
+    ? 'Preparing your language'
+    : status === 'partial'
+      ? 'Some text is waiting for translation'
+      : 'Language ready';
+  const detail = isOffline
+    ? `Only bundled or cached translations are used in ${language.nativeLabel}. Online translation is paused.`
+    : isWorking
+    ? 'Public app text is being translated and cached on this device.'
+    : status === 'partial'
+      ? `${failed || pending} item${(failed || pending) === 1 ? '' : 's'} will retry when the connection is available.`
+      : `Public app text is ready in ${language.nativeLabel}. Private notes and searches stay on this device.`;
+  return <section className={`translation-status translation-status-${isOffline ? 'offline' : status}`} role="status" aria-live="polite"><span className="translation-status-icon"><Icon name={isWorking ? 'sparkles' : status === 'partial' ? 'refresh' : 'check'} size={16} /></span><span><strong>{title}</strong><small>{detail}</small></span>{isWorking && pending > 0 && <em>{pending} queued</em>}{!isOffline && status === 'partial' && <button className="translation-status-retry" type="button" onClick={onRetry}>Retry <Icon name="refresh" size={12} /></button>}</section>;
 }
 
 function BrandMark() {
@@ -1439,12 +1659,13 @@ function BrandMark() {
   );
 }
 
-function NavButton({ item, active, onClick }) {
-  return <button className={`nav-button ${active ? 'active' : ''}`} type="button" onClick={onClick}><Icon name={item.icon} size={19} /><span>{item.label}</span>{active && <span className="nav-dot" />}</button>;
+function NavButton({ item, languageId = 'en', active, onClick }) {
+  const label = getLanguageCopy(languageId, `nav.${item.id}`, item.label);
+  return <button className={`nav-button ${active ? 'active' : ''}`} type="button" onClick={onClick}><Icon name={item.icon} size={19} /><span>{label}</span>{active && <span className="nav-dot" />}</button>;
 }
 
-function BottomNav({ activeView, selectedArticle, onNavigate }) {
-  return <nav className="bottom-nav" aria-label="Mobile navigation">{navigation.filter((item) => !['library', 'downloads'].includes(item.id)).map((item) => <NavButton key={item.id} item={item} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}</nav>;
+function BottomNav({ activeView, selectedArticle, languageId = 'en', onNavigate }) {
+  return <nav className="bottom-nav" aria-label="Mobile navigation">{navigation.filter((item) => !['library', 'downloads'].includes(item.id)).map((item) => <NavButton key={item.id} item={item} languageId={languageId} active={activeView === item.id && !selectedArticle} onClick={() => onNavigate(item.id)} />)}</nav>;
 }
 
 function GlobalSearch({ articles, lessons: journeyLessons, sourceAssets, books, onClose, onOpenBible, onOpenArticle, onOpenLibrary, onOpenStudyPack, onOpenFactsPath, onNavigate }) {
@@ -1453,8 +1674,10 @@ function GlobalSearch({ articles, lessons: journeyLessons, sourceAssets, books, 
   const [researchResults, setResearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
+  const dialogRef = useRef(null);
   const normalizedQuery = query.trim().toLowerCase();
   const referenceLocation = resolveBibleReference(query, books);
+  useDialogFocus(dialogRef, onClose, 'input');
 
   const articleResults = useMemo(() => {
     if (!normalizedQuery) return [];
@@ -1481,7 +1704,6 @@ function GlobalSearch({ articles, lessons: journeyLessons, sourceAssets, books, 
   const hasResults = Boolean(referenceLocation || articleResults.length || lessonResults.length || assetResults.length || researchResults.length || studyPackResults.length || factsPathResults.length || bibleResults.length);
 
   useEffect(() => {
-    inputRef.current?.focus();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previousOverflow; };
@@ -1524,7 +1746,7 @@ function GlobalSearch({ articles, lessons: journeyLessons, sourceAssets, books, 
   }
 
   return <div className="global-search-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="global-search-modal" role="dialog" aria-modal="true" aria-labelledby="global-search-title">
+    <section ref={dialogRef} className="global-search-modal" role="dialog" aria-modal="true" aria-labelledby="global-search-title" tabIndex="-1">
       <div className="global-search-heading"><div><p className="eyebrow">Local search</p><h2 id="global-search-title">Find your next step.</h2></div><button className="modal-close" type="button" onClick={onClose} aria-label="Close search"><Icon name="close" size={18} /></button></div>
       <div className="global-search-input"><Icon name="search" size={18} /><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }} placeholder="Search Scripture, questions, lessons, or research" aria-label="Search all local content" /><kbd>Esc</kbd>{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear global search"><Icon name="close" size={15} /></button>}</div>
       <div className="global-search-meta"><span><Icon name="lock" size={12} /> Searches stay on this device</span><span>Ctrl / ⌘ K anytime</span></div>
@@ -1553,7 +1775,7 @@ function BibleSearchResults({ query, results = [], loading, onOpenResult }) {
     <div className="bible-search-heading"><span>Search results</span>{!loading && results.length > 0 && <small>{results.length} local matches</small>}</div>
     {loading && <div className="bible-search-loading"><span className="loading-dot" /> Searching the offline Bible…</div>}
     {!loading && results.length > 0 && <div className="bible-search-list">{results.map((result) => <button className="bible-search-result" type="button" key={result.reference} onClick={() => onOpenResult?.(result)}><span className="bible-search-result-icon"><Icon name="book" size={15} /></span><span><strong>{result.reference}</strong><small>{result.text}</small></span><Icon name="arrow" size={14} /></button>)}</div>}
-    {!loading && results.length === 0 && <p className="bible-search-empty">No verses matched “{query.trim()}”. Try a shorter word or phrase.</p>}
+    {!loading && results.length === 0 && <p className="bible-search-empty">No verses matched <span data-private-content="true">“{query.trim()}”</span>. Try a shorter word or phrase.</p>}
   </div>;
 }
 
@@ -1566,7 +1788,55 @@ function SectionArt({ art }) {
   return <figure className="section-art-banner"><img src={art.src} alt={art.alt} width="1600" height="800" loading="lazy" /><figcaption>{art.label}</figcaption></figure>;
 }
 
-function Home({ onNavigate, onOpenArticle, onOpenBibleReference, onOpenJourneyLesson, bookmarks, toggleBookmark, completedLessons, bibleLocation, bibleHistory = [], books = [], dailyVerse = null, studyPlan, onSelectStudyFocus, onToggleStudyStep, onOpenStudyStep, readingPlanState, onSelectReadingPlan, onToggleReadingPlanStep, onOpenReadingPlanStep, factsPathProgress = {}, onOpenFactsPath }) {
+const DIALOG_FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function useDialogFocus(dialogRef, onClose, initialSelector = '') {
+  const closeRef = useRef(onClose);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+    const previouslyFocused = document.activeElement;
+    const initialTarget = (initialSelector && dialog.querySelector(initialSelector)) || dialog.querySelector(DIALOG_FOCUSABLE_SELECTOR);
+    initialTarget?.focus();
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRef.current?.();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...dialog.querySelectorAll(DIALOG_FOCUSABLE_SELECTOR)].filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    dialog.addEventListener('keydown', handleKeyDown);
+    return () => {
+      dialog.removeEventListener('keydown', handleKeyDown);
+      if (previouslyFocused?.isConnected && typeof previouslyFocused.focus === 'function') previouslyFocused.focus();
+    };
+  }, [dialogRef, initialSelector]);
+}
+
+function Home({ onNavigate, onOpenArticle, onOpenBibleReference, onOpenJourneyLesson, bookmarks, toggleBookmark, completedLessons, bibleLocation, bibleHistory = [], books = [], dailyVerse = null, languageId = 'en', studyPlan, onSelectStudyFocus, onToggleStudyStep, onOpenStudyStep, readingPlanState, onSelectReadingPlan, onToggleReadingPlanStep, onOpenReadingPlanStep, factsPathProgress = {}, onOpenFactsPath }) {
   const [shareMessage, setShareMessage] = useState('');
   const progress = Math.round((completedLessons.length / lessons.length) * 100);
   const currentBook = books.find((book) => book.id === bibleLocation?.bookId) || books[0] || { name: 'John', id: 'JHN' };
@@ -1575,6 +1845,8 @@ function Home({ onNavigate, onOpenArticle, onOpenBibleReference, onOpenJourneyLe
   const nextJourneyLesson = lessons.find((lesson) => !completedLessons.includes(lesson.id) && (lesson.id === 1 || completedLessons.includes(lesson.id - 1))) || lessons[lessons.length - 1];
   const journeyComplete = completedLessons.length >= lessons.length;
   const verseOfDay = dailyVerse || { reference: 'John 1:5', text: 'The light shines in the darkness, and the darkness has not overcome it.', bookId: 'JHN', chapter: 1, number: 5 };
+  const hasLocalVerseTranslation = Boolean(verseOfDay.translations?.[languageId]);
+  const displayedVerseText = verseOfDay.translations?.[languageId] || verseOfDay.text;
   const verseInsight = dailyVerseContent[verseOfDay.reference] || dailyVerseContent.default;
   const verseOfDayId = stableVerseId(verseOfDay);
   const factsTotalSections = factsInfoReadingPaths.reduce((total, path) => total + (path.readingSections?.length || 0), 0);
@@ -1582,7 +1854,10 @@ function Home({ onNavigate, onOpenArticle, onOpenBibleReference, onOpenJourneyLe
   const factsNextPath = factsInfoReadingPaths.find((path) => (factsPathProgress[path.id] || []).length < (path.readingSections?.length || 0)) || factsInfoReadingPaths[0];
   const factsProgressPercent = factsTotalSections ? Math.round((factsCompletedSections / factsTotalSections) * 100) : 0;
   async function shareDailyVerse() {
-    const text = `${verseOfDay.text}\n— ${verseOfDay.reference}`;
+    const sharedVerseText = hasLocalVerseTranslation || languageId === 'en'
+      ? displayedVerseText
+      : await requestAutomaticTranslation(verseOfDay.text, languageId) || displayedVerseText;
+    const text = `${sharedVerseText}\n— ${verseOfDay.reference}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: 'A verse for today', text });
@@ -1624,7 +1899,7 @@ function Home({ onNavigate, onOpenArticle, onOpenBibleReference, onOpenJourneyLe
 
         <section className="verse-card card-surface">
           <div className="card-heading-row"><p className="eyebrow">A verse for today</p><button className={`bookmark-button ${bookmarks.includes(verseOfDayId) ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(verseOfDayId)} aria-label={`${bookmarks.includes(verseOfDayId) ? 'Remove' : 'Save'} ${verseOfDay.reference}`} aria-pressed={bookmarks.includes(verseOfDayId)}><Icon name="bookmark" size={18} /></button></div>
-          <blockquote>“{verseOfDay.text}”</blockquote>
+          <blockquote data-no-translate={hasLocalVerseTranslation ? 'true' : undefined}>“{displayedVerseText}”</blockquote>
           <div className="verse-insight"><strong>{verseInsight.title}</strong><p>{verseInsight.explanation}</p></div>
           <div className="verse-footer"><span>{verseOfDay.reference}</span><div className="verse-footer-actions"><button type="button" onClick={shareDailyVerse}><Icon name="share" size={14} /> Share</button><button type="button" onClick={() => onOpenBibleReference?.(verseOfDay.reference)}>Open <Icon name="arrow" size={14} /></button></div>{shareMessage && <small className="verse-share-status" role="status">{shareMessage}</small>}</div>
         </section>
@@ -1749,7 +2024,7 @@ function WordStudyCard({ entries, loading, onOpenOccurrence }) {
   }, [entries, selectedNumber]);
 
   return (
-    <div className="word-study-card">
+    <div className="word-study-card" id="bible-word-study">
       <div className="word-study-heading">
         <div><p className="eyebrow">Word study</p><h3>Strong's, Vine's &amp; original languages</h3></div>
         <span>{loading ? 'Loading…' : `${entries.length} terms`}</span>
@@ -1824,22 +2099,17 @@ function CrossReferenceCard({ references, loading, onOpenReference }) {
 }
 
 function TranslationComparison({ book, chapter, verses, onClose }) {
-  useEffect(() => {
-    function closeOnEscape(event) {
-      if (event.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [onClose]);
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, onClose);
 
   return (
     <div className="modal-backdrop translation-compare-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="translation-compare-modal" role="dialog" aria-modal="true" aria-labelledby="translation-compare-title">
+      <section ref={dialogRef} className="translation-compare-modal" role="dialog" aria-modal="true" aria-labelledby="translation-compare-title" tabIndex="-1">
         <button className="modal-close" type="button" onClick={onClose} aria-label="Close text comparison"><Icon name="close" size={18} /></button>
         <div className="translation-compare-heading"><div><p className="eyebrow">Bible study</p><h2 id="translation-compare-title">Compare {book.name} {chapter}</h2></div><span>{verses.length} verses</span></div>
         <p className="translation-compare-description">Read the same local chapter in four available text variants. These source texts are included for study while translation licensing and attribution review continue.</p>
         <div className="translation-compare-grid">
-          {bibleTextOptions.map((option) => (
+          {bundledBibleTextOptions.map((option) => (
             <section className="translation-column" key={option.id} aria-labelledby={`translation-column-${option.id}`}>
               <div className="translation-column-heading"><div><p className="eyebrow">{option.language}</p><h3 id={`translation-column-${option.id}`}>{option.label}</h3></div><span>Review</span></div>
               <ol>
@@ -1881,7 +2151,7 @@ function BiblePlan({ completedLessons = [], onToggleLesson, onOpenReference }) {
   );
 }
 
-const speechLanguageByTranslation = { en: 'en-US', bg: 'bg-BG', ch: 'zh-CN', sp: 'es-ES' };
+const speechLanguageByTranslation = Object.fromEntries(bibleTextOptions.map((option) => [option.id, option.locale]));
 
 function AudioReaderPanel({ book, chapter, verses = [], translation, loading, previousLocation, nextLocation, onChangeLocation }) {
   const [playbackStatus, setPlaybackStatus] = useState('idle');
@@ -1889,9 +2159,12 @@ function AudioReaderPanel({ book, chapter, verses = [], translation, loading, pr
   const [rate, setRate] = useState(1);
   const [voiceUri, setVoiceUri] = useState('');
   const [voices, setVoices] = useState([]);
+  const [translationPending, setTranslationPending] = useState(false);
+  const [translationRetryToken, setTranslationRetryToken] = useState(0);
   const speechSequenceRef = useRef(0);
   const speechRef = useRef(null);
   const nativeUtteranceIdRef = useRef('');
+  const nativeSpeechRunRef = useRef(null);
   const speechSupported = typeof window !== 'undefined'
     && typeof window.speechSynthesis?.speak === 'function'
     && typeof window.SpeechSynthesisUtterance === 'function';
@@ -1899,8 +2172,15 @@ function AudioReaderPanel({ book, chapter, verses = [], translation, loading, pr
   const [nativeSpeechAvailable, setNativeSpeechAvailable] = useState(false);
   const [nativeSpeechChecked, setNativeSpeechChecked] = useState(!isAndroid || speechSupported);
   const useNativeSpeech = isAndroid && !speechSupported && nativeSpeechAvailable;
-
   if (!nativeUtteranceIdRef.current) nativeUtteranceIdRef.current = `fdl-reader-${Math.random().toString(36).slice(2)}`;
+
+  useEffect(() => {
+    const retry = (event) => {
+      if (event.detail?.languageId === translation?.id) setTranslationRetryToken((current) => current + 1);
+    };
+    window.addEventListener('fdl-translation-retry', retry);
+    return () => window.removeEventListener('fdl-translation-retry', retry);
+  }, [translation?.id]);
 
   useEffect(() => {
     if (!speechSupported) return undefined;
@@ -1931,11 +2211,28 @@ function AudioReaderPanel({ book, chapter, verses = [], translation, loading, pr
         setNativeSpeechChecked(true);
       });
     LocalTextToSpeech.addListener('speechState', (event) => {
-      if (!active || event?.utteranceId !== nativeUtteranceIdRef.current) return;
-      if (event.state === 'playing') setPlaybackStatus('playing');
-      if (event.state === 'complete') setPlaybackStatus('complete');
-      if (event.state === 'error') setPlaybackStatus('error');
-      if (event.state === 'idle') setPlaybackStatus('idle');
+      const run = nativeSpeechRunRef.current;
+      if (!active || !run || run.sequence !== speechSequenceRef.current || event?.utteranceId !== run.utteranceId) return;
+      if (event.state === 'playing') {
+        setCurrentVerseNumber(run.verses[run.index]?.number || currentVerseNumber);
+        setPlaybackStatus('playing');
+      }
+      if (event.state === 'complete') {
+        if (run.index + 1 < run.verses.length) {
+          speakNativeVerse(run, run.index + 1);
+        } else {
+          nativeSpeechRunRef.current = null;
+          setPlaybackStatus('complete');
+        }
+      }
+      if (event.state === 'error') {
+        nativeSpeechRunRef.current = null;
+        setPlaybackStatus('error');
+      }
+      if (event.state === 'idle') {
+        nativeSpeechRunRef.current = null;
+        setPlaybackStatus('idle');
+      }
     }).then((handle) => {
       if (!active) handle.remove();
       else listenerHandle = handle;
@@ -1949,15 +2246,17 @@ function AudioReaderPanel({ book, chapter, verses = [], translation, loading, pr
 
   useEffect(() => {
     speechSequenceRef.current += 1;
+    nativeSpeechRunRef.current = null;
     if (speechSupported) window.speechSynthesis.cancel();
     if (useNativeSpeech) LocalTextToSpeech.stop().catch(() => undefined);
     speechRef.current = null;
     setPlaybackStatus('idle');
     setCurrentVerseNumber(verses[0]?.number || null);
-  }, [book?.id, chapter, translation?.id, speechSupported, useNativeSpeech]);
+  }, [book?.id, chapter, translation?.id, verses?.length, speechSupported, useNativeSpeech]);
 
-useEffect(() => () => {
+  useEffect(() => () => {
     speechSequenceRef.current += 1;
+    nativeSpeechRunRef.current = null;
     if (speechSupported) window.speechSynthesis.cancel();
     if (useNativeSpeech) LocalTextToSpeech.stop().catch(() => undefined);
   }, [speechSupported, useNativeSpeech]);
@@ -1965,13 +2264,40 @@ useEffect(() => () => {
   const currentIndex = Math.max(0, verses.findIndex((verse) => verse.number === currentVerseNumber));
   const progress = verses.length ? Math.round(((currentIndex + 1) / verses.length) * 100) : 0;
   const selectedVoice = voices.find((voice) => voice.voiceURI === voiceUri);
+  const [translatedVerseTexts, setTranslatedVerseTexts] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    const languageId = translation?.id || 'en';
+    const translatableVerses = verses.filter((verse) => !verse?.translations?.[languageId] && verse?.text);
+    if (languageId === 'en' || translatableVerses.length === 0) {
+      setTranslatedVerseTexts({});
+      setTranslationPending(false);
+      return () => { active = false; };
+    }
+    const cached = Object.fromEntries(translatableVerses.map((verse) => [stableVerseId(verse), getCachedAutomaticTranslation(verse.text, languageId)]).filter(([, text]) => text));
+    setTranslatedVerseTexts(cached);
+    setTranslationPending(Object.keys(cached).length < translatableVerses.length);
+    Promise.all(translatableVerses.map(async (verse) => [stableVerseId(verse), await requestAutomaticTranslation(verse.text, languageId)]))
+      .then((entries) => {
+        if (!active) return;
+        setTranslatedVerseTexts((current) => ({ ...current, ...Object.fromEntries(entries.filter(([, text]) => text)) }));
+        setTranslationPending(false);
+      });
+    return () => { active = false; };
+  }, [verses, translation?.id, translationRetryToken]);
 
   function verseText(verse) {
-    return verse?.translations?.[translation?.id] || verse?.text || '';
+    return verse?.translations?.[translation?.id] || translatedVerseTexts[stableVerseId(verse)] || verse?.text || '';
+  }
+
+  function verseLanguage(verse) {
+    return verse?.translations?.[translation?.id] || translatedVerseTexts[stableVerseId(verse)] ? speechLanguageByTranslation[translation?.id] || translation?.locale || 'en-US' : 'en-US';
   }
 
   function stopSpeech(resetStatus = true) {
     speechSequenceRef.current += 1;
+    nativeSpeechRunRef.current = null;
     if (speechSupported) window.speechSynthesis.cancel();
     if (useNativeSpeech) LocalTextToSpeech.stop().catch(() => undefined);
     speechRef.current = null;
@@ -1990,8 +2316,28 @@ useEffect(() => () => {
     setPlaybackStatus('playing');
   }
 
+  function speakNativeVerse(run, index) {
+    if (run.sequence !== speechSequenceRef.current || index >= run.verses.length) return;
+    const verse = run.verses[index];
+    run.index = index;
+    run.utteranceId = `${nativeUtteranceIdRef.current}-${run.sequence}-verse-${verse.number}`;
+    setCurrentVerseNumber(verse.number);
+    setPlaybackStatus('playing');
+    LocalTextToSpeech.speak({
+      text: verseText(verse),
+      language: verseLanguage(verse),
+      rate: run.rate,
+      utteranceId: run.utteranceId,
+    }).catch(() => {
+      if (run.sequence === speechSequenceRef.current) {
+        nativeSpeechRunRef.current = null;
+        setPlaybackStatus('error');
+      }
+    });
+  }
+
   function startSpeech(startIndex = currentIndex, restart = false) {
-    if ((!speechSupported && !useNativeSpeech) || loading || verses.length === 0) return;
+    if ((!speechSupported && !useNativeSpeech) || loading || translationPending || verses.length === 0) return;
     if (playbackStatus === 'paused' && !restart) {
       resumeSpeech();
       return;
@@ -1999,15 +2345,16 @@ useEffect(() => () => {
     const safeStart = Math.min(Math.max(0, startIndex), verses.length - 1);
     stopSpeech(false);
     const sequence = speechSequenceRef.current;
-    const language = speechLanguageByTranslation[translation?.id] || 'en-US';
-
     if (useNativeSpeech) {
-      const nativeText = verses.slice(safeStart).map((verse) => `${verse.reference}. ${verseText(verse)}`).join('\n\n');
-      setCurrentVerseNumber(verses[safeStart].number);
-      setPlaybackStatus('playing');
-      LocalTextToSpeech.speak({ text: nativeText, language, rate, utteranceId: nativeUtteranceIdRef.current }).catch(() => {
-        if (sequence === speechSequenceRef.current) setPlaybackStatus('error');
-      });
+      const run = {
+        sequence,
+        verses: verses.slice(safeStart),
+        index: -1,
+        utteranceId: '',
+        rate,
+      };
+      nativeSpeechRunRef.current = run;
+      speakNativeVerse(run, 0);
       return;
     }
 
@@ -2020,8 +2367,8 @@ useEffect(() => () => {
         return;
       }
       const verse = verses[index];
-      const utterance = new window.SpeechSynthesisUtterance(`${verse.reference}. ${verseText(verse)}`);
-      utterance.lang = language;
+      const utterance = new window.SpeechSynthesisUtterance(verseText(verse));
+      utterance.lang = verseLanguage(verse);
       utterance.rate = rate;
       if (selectedVoice) utterance.voice = selectedVoice;
       utterance.onstart = () => {
@@ -2054,23 +2401,25 @@ useEffect(() => () => {
   const audioAvailable = speechSupported || useNativeSpeech;
   const primaryAction = playbackStatus === 'playing' ? (useNativeSpeech ? stopSpeech : pauseSpeech) : playbackStatus === 'paused' ? resumeSpeech : () => startSpeech(currentIndex);
   const primaryIcon = playbackStatus === 'playing' ? (useNativeSpeech ? 'stop' : 'pause') : playbackStatus === 'paused' ? 'play' : 'play';
-  const primaryLabel = playbackStatus === 'playing' ? (useNativeSpeech ? 'Stop' : 'Pause') : playbackStatus === 'paused' ? 'Resume' : playbackStatus === 'complete' ? 'Play again' : 'Play from verse';
+  const copy = (key, fallback) => getLanguageCopy(translation?.id, key, fallback);
+  const primaryLabel = playbackStatus === 'playing' ? (useNativeSpeech ? copy('bible.stop', 'Stop') : 'Pause') : playbackStatus === 'paused' ? 'Resume' : playbackStatus === 'complete' ? 'Play again' : 'Play from verse';
+  const playbackLabel = translationPending ? 'Preparing the selected language…' : playbackStatus === 'playing' ? 'Speaking' : playbackStatus === 'paused' ? 'Paused' : playbackStatus === 'complete' ? 'Chapter complete' : playbackStatus === 'error' ? 'Voice error' : copy('bible.ready', 'Ready to listen');
   return <section className="reader-audio" aria-labelledby="reader-audio-title">
     <SectionArt art={sectionArt.audio} />
     <div className="reader-audio-heading"><div><p className="eyebrow">Listen · reflect</p><h2 id="reader-audio-title">Hear {book?.name} {chapter} aloud.</h2><p>Use the speech voice already installed on this device to listen through the chapter. Nothing is streamed or sent away.</p></div><span className="reader-audio-icon"><Icon name="headphones" size={24} /></span></div>
     {loading ? <div className="reader-audio-empty" role="status"><span className="loading-dot" /> Loading this chapter…</div> : isAndroid && !speechSupported && !nativeSpeechChecked ? <div className="reader-audio-unavailable"><Icon name="headphones" size={20} /><div><strong>Checking the local Android voice…</strong><p>The app is checking the speech engine already installed on this device.</p></div></div> : !audioAvailable ? <div className="reader-audio-unavailable"><Icon name="info" size={20} /><div><strong>Read-aloud is unavailable here.</strong><p>{isAndroid ? 'Android could not find a usable local speech engine. The Bible remains available in the Read tab.' : 'This device or browser does not expose a local speech engine. The Bible remains available in the Read tab.'}</p></div></div> : <>
-      <div className="reader-audio-progress"><div><span>Current verse</span><strong>{book?.name} {chapter}:{currentVerseNumber || '—'}</strong></div><div><span>{playbackStatus === 'playing' ? 'Speaking' : playbackStatus === 'paused' ? 'Paused' : playbackStatus === 'complete' ? 'Chapter complete' : playbackStatus === 'error' ? 'Voice error' : 'Ready to listen'}</span><strong>{progress}%</strong></div></div>
+      <div className="reader-audio-progress"><div><span>{copy('bible.currentVerse', 'Current verse')}</span><strong aria-live="polite">{book?.name} {chapter}:{currentVerseNumber || '—'}</strong></div><div><span>{playbackLabel}</span><strong>{translationPending ? '…' : `${progress}%`}</strong></div></div>
       <div className="reader-audio-track" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
-      <div className="reader-audio-controls"><button className="primary-button" type="button" onClick={primaryAction}><Icon name={primaryIcon} size={15} /> {primaryLabel}</button><button className="secondary-button" type="button" onClick={() => startSpeech(0, true)}><Icon name="refresh" size={15} /> Start chapter</button><button className="audio-stop-button" type="button" onClick={() => stopSpeech()} disabled={playbackStatus === 'idle'}><Icon name="stop" size={15} /> Stop</button></div>
-      <div className="reader-audio-options"><label><span>Reading speed</span><select value={rate} onChange={(event) => setRate(Number(event.target.value))}><option value="0.8">Slower · 0.8×</option><option value="1">Normal · 1×</option><option value="1.15">Steady · 1.15×</option><option value="1.3">Faster · 1.3×</option></select></label>{voices.length > 0 && <label><span>Device voice</span><select value={voiceUri} onChange={(event) => setVoiceUri(event.target.value)}><option value="">System default</option>{voices.map((voice) => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} · {voice.lang}</option>)}</select></label>}</div>
-      <div className="reader-audio-verse-list" aria-label="Choose a starting verse">{verses.map((verse, index) => <button className={verse.number === currentVerseNumber ? 'active' : ''} type="button" key={verse.number} onClick={() => startSpeech(index, true)}><span>{verse.number}</span><p>{verseText(verse)}</p><Icon name="play" size={12} /></button>)}</div>
+      <div className="reader-audio-controls"><button className="primary-button" type="button" onClick={primaryAction} disabled={translationPending}><Icon name={primaryIcon} size={15} /> {translationPending ? 'Preparing…' : primaryLabel}</button><button className="secondary-button" type="button" onClick={() => startSpeech(0, true)} disabled={translationPending}><Icon name="refresh" size={15} /> {copy('bible.startChapter', 'Start chapter')}</button><button className="audio-stop-button" type="button" onClick={() => stopSpeech()} disabled={playbackStatus === 'idle'}><Icon name="stop" size={15} /> {copy('bible.stop', 'Stop')}</button></div>
+      <div className="reader-audio-options"><label><span>{copy('bible.readingSpeed', 'Reading speed')}</span><select value={rate} onChange={(event) => setRate(Number(event.target.value))}><option value="0.8">Slower · 0.8×</option><option value="1">Normal · 1×</option><option value="1.15">Steady · 1.15×</option><option value="1.3">Faster · 1.3×</option></select></label>{useNativeSpeech ? <div className="reader-audio-voice-note"><Icon name="headphones" size={14} /><span><strong>System default voice</strong><small>Android uses the installed voice for {translation?.label || 'the selected language'}.</small></span></div> : voices.length > 0 && <label><span>Device voice</span><select value={voiceUri} onChange={(event) => setVoiceUri(event.target.value)}><option value="">System default</option>{voices.map((voice) => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} · {voice.lang}</option>)}</select></label>}</div>
+      <div className="reader-audio-verse-list" aria-label="Choose a starting verse">{verses.map((verse, index) => <button className={verse.number === currentVerseNumber ? 'active' : ''} type="button" key={verse.number} onClick={() => startSpeech(index, true)} disabled={translationPending}><span>{verse.number}</span><p data-no-translate={translation?.id !== 'en' ? 'true' : undefined}>{verseText(verse)}</p><Icon name="play" size={12} /></button>)}</div>
       <div className="reader-audio-navigation"><button className="text-button" type="button" disabled={!previousLocation} onClick={() => changeChapter(previousLocation)}><Icon name="back" size={14} /> Previous chapter</button><span>{useNativeSpeech ? 'Android Text-to-Speech' : 'Local device voice'} · {translation?.label || 'English'}</span><button className="text-button" type="button" disabled={!nextLocation} onClick={() => changeChapter(nextLocation)}>Next chapter <Icon name="arrow" size={14} /></button></div>
     </>}
     <p className="content-note"><Icon name="lock" size={12} /> Audio here means local text-to-speech. It depends on the voices installed on the device; no audio files or network service are required.</p>
   </section>;
 }
 
-function Bible({ verses: verseList, books: bookList, location, onChangeLocation, loading, searchTerm, setSearchTerm, bookmarks, toggleBookmark, highlights, toggleHighlight, notes, saveNote, readerPreferences, updateReaderPreference, completedLessons, toggleLesson }) {
+function Bible({ verses: verseList, books: bookList, location, onChangeLocation, loading, focusTarget = null, onFocusTargetHandled, chapterError = '', onRetryChapter, databaseStatus = 'ready', databaseError = '', onRetryDatabase, searchTerm, setSearchTerm, bookmarks, toggleBookmark, highlights, toggleHighlight, notes, saveNote, readerPreferences, updateReaderPreference, completedLessons, toggleLesson }) {
   const [noteVerseId, setNoteVerseId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [copyMessage, setCopyMessage] = useState('');
@@ -2084,11 +2433,15 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
   const [jumpVerse, setJumpVerse] = useState('');
   const [bibleSearchResults, setBibleSearchResults] = useState([]);
   const [bibleSearchLoading, setBibleSearchLoading] = useState(false);
+  const [translatedVerseTexts, setTranslatedVerseTexts] = useState({});
+  const [verseTranslationPending, setVerseTranslationPending] = useState(false);
+  const [translationRetryToken, setTranslationRetryToken] = useState(0);
   const searchRef = useRef(null);
   const fontScale = Math.min(1.3, Math.max(.85, Number(readerPreferences?.fontScale) || 1));
   const tone = readerPreferences?.tone || 'default';
   const translationKey = bibleTextOptions.some((option) => option.id === readerPreferences?.translation) ? readerPreferences.translation : 'en';
   const selectedTextOption = bibleTextOptions.find((option) => option.id === translationKey) || bibleTextOptions[0];
+  const copy = (key, fallback) => getLanguageCopy(translationKey, key, fallback);
   const currentBook = bookList.find((book) => book.id === location.bookId) || bookList[0];
   const currentBookIndex = Math.max(0, bookList.findIndex((book) => book.id === currentBook?.id));
   const currentChapter = Number(location.chapter) || 1;
@@ -2103,9 +2456,9 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
       ? { bookId: bookList[currentBookIndex + 1].id, chapter: 1 }
       : null;
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const searchReference = normalizedSearch.match(/^(.+?)\s+(\d+)(?::(\d+)(?:[-–]\d+)?)?$/);
+  const searchReference = normalizedSearch.match(/^(.+?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(?:\d+:)?\d+)?)?$/);
   const hasReferenceSyntax = Boolean(searchReference);
-  const searchBook = searchReference && bookList.find((book) => book.name.toLowerCase() === searchReference[1].trim().toLowerCase());
+  const searchBook = searchReference && findBibleBook(searchReference[1], bookList);
   const searchTarget = normalizedSearch && verseList.find((verse) => {
     const exactMatch = verse.reference.toLowerCase() === normalizedSearch || `${currentBook.name.toLowerCase()} ${currentChapter}:${verse.number}` === normalizedSearch;
     const linkedChapter = Boolean(searchBook && searchBook.id === currentBook.id && Number(searchReference?.[2]) === currentChapter);
@@ -2114,8 +2467,16 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
   });
   const searchMatch = Boolean(searchTarget) || Boolean(searchBook && Number(searchReference[2]) === currentChapter && searchBook.id === currentBook.id);
 
+  useEffect(() => {
+    const retry = (event) => {
+      if (event.detail?.languageId === translationKey) setTranslationRetryToken((current) => current + 1);
+    };
+    window.addEventListener('fdl-translation-retry', retry);
+    return () => window.removeEventListener('fdl-translation-retry', retry);
+  }, [translationKey]);
+
   function verseText(verse) {
-    return verse?.translations?.[translationKey] || verse?.text || '';
+    return verse?.translations?.[translationKey] || translatedVerseTexts[stableVerseId(verse)] || verse?.text || '';
   }
 
   function submitSearch() {
@@ -2196,6 +2557,26 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
   }, [verseList]);
 
   useEffect(() => {
+    let active = true;
+    const translatableVerses = verseList.filter((verse) => !verse?.translations?.[translationKey] && verse?.text);
+    if (translationKey === 'en' || translatableVerses.length === 0) {
+      setTranslatedVerseTexts({});
+      setVerseTranslationPending(false);
+      return () => { active = false; };
+    }
+    const cached = Object.fromEntries(translatableVerses.map((verse) => [stableVerseId(verse), getCachedAutomaticTranslation(verse.text, translationKey)]).filter(([, text]) => text));
+    setTranslatedVerseTexts(cached);
+    setVerseTranslationPending(Object.keys(cached).length < translatableVerses.length);
+    Promise.all(translatableVerses.map(async (verse) => [stableVerseId(verse), await requestAutomaticTranslation(verse.text, translationKey)]))
+      .then((entries) => {
+        if (!active) return;
+        setTranslatedVerseTexts((current) => ({ ...current, ...Object.fromEntries(entries.filter(([, text]) => text)) }));
+        setVerseTranslationPending(false);
+      });
+    return () => { active = false; };
+  }, [translationKey, verseList, translationRetryToken]);
+
+  useEffect(() => {
     let cancelled = false;
     if (!currentBook?.id || !currentChapter) {
       setCrossReferences([]);
@@ -2250,13 +2631,26 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [focusMode]);
 
+  useEffect(() => {
+    if (!focusTarget || loading || verseList.length === 0) return undefined;
+    setReaderTab(focusTarget === 'audio' ? 'audio' : 'read');
+    const timer = window.setTimeout(() => {
+      const selector = focusTarget === 'audio' ? '.reader-audio' : focusTarget === 'word-study' ? '#bible-word-study' : '.reader-panel';
+      document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onFocusTargetHandled?.();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [focusTarget, loading, verseList.length]);
+
   return (
     <div className={`bible-page page-enter ${focusMode ? 'bible-focus-page' : ''}`}>
-       <SectionIntro eyebrow="Read · Plan" title="The Bible" description="Read slowly. Ask honestly. Let Scripture meet you where you are." action={<div className="bible-intro-actions"><button className="round-icon-button" type="button" aria-label="Bible search" onClick={() => searchRef.current?.focus()}><Icon name="search" /></button><button className={`round-icon-button ${focusMode ? 'active' : ''}`} type="button" aria-pressed={focusMode} aria-label={focusMode ? 'Exit focus reading' : 'Open focus reading'} title={focusMode ? 'Exit focus reading' : 'Focus reading'} onClick={() => setFocusMode((current) => !current)}><Icon name={focusMode ? 'minimize' : 'focus'} /></button></div>} />
+      <SectionIntro eyebrow={copy('bible.eyebrow', 'Read · Plan')} title={copy('bible.title', 'The Bible')} description={copy('bible.description', 'Read slowly. Ask honestly. Let Scripture meet you where you are.')} action={<div className="bible-intro-actions"><button className="round-icon-button" type="button" aria-label="Bible search" onClick={() => searchRef.current?.focus()}><Icon name="search" /></button><button className={`round-icon-button ${focusMode ? 'active' : ''}`} type="button" aria-pressed={focusMode} aria-label={focusMode ? 'Exit focus reading' : 'Open focus reading'} title={focusMode ? 'Exit focus reading' : 'Focus reading'} onClick={() => setFocusMode((current) => !current)}><Icon name={focusMode ? 'minimize' : 'focus'} /></button></div>} />
       <SectionArt art={sectionArt.bible} />
       <div className={`reader-layout ${focusMode ? 'reader-layout-focus' : ''}`}>
         <section className={`reader-panel reader-tone-${tone}`}>
-          <div className="reader-toolbar"><div className="reader-tabs"><button className={`reader-tab ${readerTab === 'read' ? 'active' : ''}`} type="button" onClick={() => setReaderTab('read')}>Read</button><button className={`reader-tab ${readerTab === 'plan' ? 'active' : ''}`} type="button" onClick={() => setReaderTab('plan')}>Plan</button><button className={`reader-tab ${readerTab === 'audio' ? 'active' : ''}`} type="button" onClick={() => setReaderTab('audio')}>Audio</button></div>{readerTab === 'read' && <label className="translation-pill"><span className="sr-only">Bible text and language</span><select value={translationKey} onChange={(event) => updateReaderPreference('translation', event.target.value)} aria-label="Bible text and language">{bibleTextOptions.map((option) => <option key={option.id} value={option.id}>{option.shortLabel} · review</option>)}</select><Icon name="chevron" size={14} /></label>}</div>
+          {databaseStatus === 'error' && <div className="reader-database-error" role="alert"><Icon name="info" size={18} /><div><strong>The offline Bible database could not be opened.</strong><p>{databaseError || 'The full Scripture library is unavailable in this build.'}</p><button className="text-button" type="button" onClick={onRetryDatabase}>Retry local Bible</button></div></div>}
+          {databaseStatus === 'loading' && <div className="reader-database-loading" role="status"><span className="loading-dot" /><div><strong>Opening the offline Bible</strong><p>The complete Scripture library is loading from this app. This can take a moment on first launch.</p></div></div>}
+          <div className="reader-toolbar"><div className="reader-tabs"><button className={`reader-tab ${readerTab === 'read' ? 'active' : ''}`} type="button" onClick={() => setReaderTab('read')}>{copy('bible.read', 'Read')}</button><button className={`reader-tab ${readerTab === 'plan' ? 'active' : ''}`} type="button" onClick={() => setReaderTab('plan')}>{copy('bible.plan', 'Plan')}</button><button className={`reader-tab ${readerTab === 'audio' ? 'active' : ''}`} type="button" onClick={() => setReaderTab('audio')}>{copy('bible.audio', 'Audio')}</button></div>{readerTab === 'read' && <label className="translation-pill"><span className="sr-only">Bible text and language</span><select value={translationKey} onChange={(event) => updateReaderPreference('translation', event.target.value)} aria-label="Bible text and language">{bibleTextOptions.map((option) => <option key={option.id} value={option.id}>{option.shortLabel} · review</option>)}</select><Icon name="chevron" size={14} /></label>}</div>
           {readerTab === 'plan' ? <BiblePlan completedLessons={completedLessons} onToggleLesson={toggleLesson} onOpenReference={openPlanReference} /> : readerTab === 'audio' ? <AudioReaderPanel book={currentBook} chapter={currentChapter} verses={verseList} translation={selectedTextOption} loading={loading} previousLocation={previousLocation} nextLocation={nextLocation} onChangeLocation={onChangeLocation} /> : <>
           <div className="reader-tools" aria-label="Reading controls"><div className="reader-font-controls"><button type="button" onClick={() => updateReaderPreference('fontScale', Math.max(.85, fontScale - .1))} aria-label="Decrease Bible text size">A−</button><span>{Math.round(fontScale * 100)}%</span><button type="button" onClick={() => updateReaderPreference('fontScale', Math.min(1.3, fontScale + .1))} aria-label="Increase Bible text size">A+</button></div><button className="reader-tone-button" type="button" onClick={() => updateReaderPreference('tone', tone === 'default' ? 'sepia' : tone === 'sepia' ? 'night' : 'default')} aria-label="Change reading tone">{tone === 'default' ? 'Paper' : tone === 'sepia' ? 'Sepia' : 'Low light'}</button>{copyMessage && <span className="copy-status" role="status">{copyMessage}</span>}</div>
           <div className="reference-row"><button className="reference-arrow" type="button" aria-label="Previous chapter" disabled={!previousLocation} onClick={() => previousLocation && onChangeLocation(previousLocation)}><Icon name="back" size={18} /></button><label className="reference-select"><span className="sr-only">Bible book</span><select value={currentBook.id} onChange={(event) => onChangeLocation({ bookId: event.target.value, chapter: 1 })}>{bookList.map((book) => <option key={book.id} value={book.id}>{book.name}</option>)}</select><Icon name="chevron" size={15} /></label><label className="reference-select chapter-select"><span className="sr-only">Bible chapter</span><select value={currentChapter} onChange={(event) => onChangeLocation({ bookId: currentBook.id, chapter: Number(event.target.value) })}>{Array.from({ length: currentBook.chapterCount }, (_, index) => <option key={index + 1} value={index + 1}>Chapter {index + 1}</option>)}</select><Icon name="chevron" size={15} /></label><button className="reference-arrow" type="button" aria-label="Next chapter" disabled={!nextLocation} onClick={() => nextLocation && onChangeLocation(nextLocation)}><Icon name="arrow" size={18} /></button></div>
@@ -2265,13 +2659,14 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
            {searchTerm && !hasReferenceSyntax && <BibleSearchResults query={searchTerm} results={bibleSearchResults} loading={bibleSearchLoading} onOpenResult={openBibleSearchResult} />}
            <div className="verse-jump-row"><label><span>Jump to verse</span><select value={jumpVerse} onChange={(event) => jumpToVerse(Number(event.target.value))}><option value="">Choose a verse…</option>{verseList.map((verse) => <option key={verse.number} value={verse.number}>Verse {verse.number}</option>)}</select><Icon name="chevron" size={14} /></label></div>
            <div className="chapter-heading"><span className="chapter-kicker">{currentBook.name}</span><h2>{currentBook.name} {currentChapter}</h2><span className="chapter-subtitle">{currentBook.id === 'JHN' && currentChapter === 1 ? 'The Word Became Flesh' : 'Read this chapter slowly'}</span></div>
-          {loading ? <div className="reader-loading" role="status"><span className="loading-dot" /> Loading {currentBook.name} {currentChapter}…</div> : <div className="verse-list">{verseList.map((verse) => {
+           {verseTranslationPending && <p className="reader-translation-status" role="status">Preparing the selected language for this chapter…</p>}
+          {loading ? <div className="reader-loading" role="status"><span className="loading-dot" /> Loading {currentBook.name} {currentChapter}…</div> : chapterError ? <div className="reader-chapter-error" role="alert"><Icon name="info" size={18} /><div><strong>We could not open this chapter.</strong><p>{chapterError}</p><button className="text-button" type="button" onClick={onRetryChapter}>Try this chapter again</button></div></div> : <div className="verse-list">{verseList.map((verse) => {
             const id = stableVerseId(verse);
             const saved = bookmarks.includes(id);
             const highlighted = highlights.includes(id);
             const noted = Boolean(notes[id]);
             const targeted = searchTarget?.number === verse.number;
-             return <div className="verse-entry" id={`verse-${verse.bookId || currentBook.id}-${verse.chapter || currentChapter}-${verse.number}`} key={`${verse.bookId || currentBook.id}-${verse.chapter || currentChapter}-${verse.number}`}><div className={`verse-row ${verse.reference === 'John 1:5' ? 'verse-highlight' : ''} ${highlighted ? 'verse-user-highlight' : ''} ${targeted ? 'verse-search-target' : ''}`}><span className="verse-number">{verse.number}</span><p style={{ fontSize: `${17 * fontScale}px` }}>{verseText(verse)}</p><div className="verse-actions"><button className={`verse-action ${saved ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(id)} aria-label={`${saved ? 'Remove' : 'Save'} ${verse.reference}`} aria-pressed={saved}><Icon name="bookmark" size={15} /></button><button className={`verse-action ${highlighted ? 'active' : ''}`} type="button" onClick={() => toggleHighlight(id)} aria-label={`${highlighted ? 'Remove' : 'Add'} highlight to ${verse.reference}`} aria-pressed={highlighted}><Icon name="sun" size={15} /></button><button className={`verse-action ${noted ? 'noted' : ''}`} type="button" onClick={() => editNote(verse)} aria-label={`${noted ? 'Edit' : 'Add'} note for ${verse.reference}`}><Icon name="dialogue" size={15} /></button></div></div>{noteVerseId === id && <div className="verse-note-editor"><label htmlFor={`note-${verse.number}`}>Private note for {verse.reference}</label><textarea id={`note-${verse.number}`} value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Write a thought to return to…" rows="3" /><div><button className="text-button subtle" type="button" onClick={() => setNoteVerseId(null)}>Cancel</button><button className="primary-button" type="button" onClick={() => { saveNote(id, noteDraft); setNoteVerseId(null); }}>Save note</button></div></div>}</div>;
+             return <div className="verse-entry" id={`verse-${verse.bookId || currentBook.id}-${verse.chapter || currentChapter}-${verse.number}`} key={`${verse.bookId || currentBook.id}-${verse.chapter || currentChapter}-${verse.number}`}><div className={`verse-row ${verse.reference === 'John 1:5' ? 'verse-highlight' : ''} ${highlighted ? 'verse-user-highlight' : ''} ${targeted ? 'verse-search-target' : ''}`}><span className="verse-number">{verse.number}</span><p data-no-translate={translationKey !== 'en' ? 'true' : undefined} style={{ fontSize: `${17 * fontScale}px` }}>{verseText(verse)}</p><div className="verse-actions"><button className={`verse-action ${saved ? 'saved' : ''}`} type="button" onClick={() => toggleBookmark(id)} aria-label={`${saved ? 'Remove' : 'Save'} ${verse.reference}`} aria-pressed={saved}><Icon name="bookmark" size={15} /></button><button className={`verse-action ${highlighted ? 'active' : ''}`} type="button" onClick={() => toggleHighlight(id)} aria-label={`${highlighted ? 'Remove' : 'Add'} highlight to ${verse.reference}`} aria-pressed={highlighted}><Icon name="sun" size={15} /></button><button className={`verse-action ${noted ? 'noted' : ''}`} type="button" onClick={() => editNote(verse)} aria-label={`${noted ? 'Edit' : 'Add'} note for ${verse.reference}`}><Icon name="dialogue" size={15} /></button></div></div>{noteVerseId === id && <div className="verse-note-editor"><label htmlFor={`note-${verse.number}`}>Private note for {verse.reference}</label><textarea id={`note-${verse.number}`} value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Write a thought to return to…" rows="3" /><div><button className="text-button subtle" type="button" onClick={() => setNoteVerseId(null)}>Cancel</button><button className="primary-button" type="button" onClick={() => { saveNote(id, noteDraft); setNoteVerseId(null); }}>Save note</button></div></div>}</div>;
           })}</div>}
             <p className="content-note">{selectedTextOption.label} text from the local Data source · all text variants remain subject to license and attribution review before public release.</p>
           </>}
@@ -2322,6 +2717,12 @@ function Learn({ articles: articleList, sourceAssets = [], onOpenArticle, onOpen
     }
   }, [initialStudyPackId, packList]);
 
+  function openLearnCategory(nextCategory, targetId) {
+    setCategory(nextCategory);
+    setQuery('');
+    window.setTimeout(() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }
+
   function focusWordStudy() {
     const explorer = document.getElementById('word-study-explorer');
     explorer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2334,7 +2735,7 @@ function Learn({ articles: articleList, sourceAssets = [], onOpenArticle, onOpen
       <SectionArt art={sectionArt.learn} />
       <div className="reference-search learn-search"><Icon name="search" size={16} /><input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search lessons and questions" aria-label="Search lessons and questions" />{query && <button type="button" onClick={() => setQuery('')} aria-label="Clear learning search"><Icon name="close" size={15} /></button>}</div>
       <div className="category-pills">{categories.map((option) => <button className={`category-pill ${category === option ? 'active' : ''}`} type="button" key={option} onClick={() => setCategory(option)}>{option}</button>)}</div>
-      <LearnContentShelf articles={articleList} sourceAssets={sourceAssets} studyPacks={packList} onSelectCategory={setCategory} onOpenLibraryGroup={onOpenLibraryGroup} onOpenBible={onOpenBible} onOpenDownloads={onOpenDownloads} onFocusWordStudy={focusWordStudy} />
+      <LearnContentShelf articles={articleList} sourceAssets={sourceAssets} studyPacks={packList} onSelectCategory={openLearnCategory} onOpenLibraryGroup={onOpenLibraryGroup} onOpenBible={onOpenBible} onOpenDownloads={onOpenDownloads} onFocusWordStudy={focusWordStudy} />
       {visibleStudyPacks.length > 0 && <StudyPackShelf packs={visibleStudyPacks} savedStudyPacks={savedStudyPacks} completedResourcesByPack={completedResourcesByPack} onToggleStudyPackResource={onToggleStudyPackResource} onToggleStudyPack={onToggleStudyPack} onOpenResource={onOpenStudyPackResource} onSaveGuide={onSaveGuide} initialPackId={initialStudyPackId} />}
       {category === 'Study Packs' && visibleStudyPacks.length === 0 && <EmptyState icon="database" title="No study packs found" text="Try another search to find a practical reading bundle." />}
       <ResearchCollectionShelf sourceAssets={sourceAssets} onOpenLibraryGroup={onOpenLibraryGroup} />
@@ -2343,8 +2744,8 @@ function Learn({ articles: articleList, sourceAssets = [], onOpenArticle, onOpen
       <AskQuestion questions={questionArticles} onOpenArticle={onOpenArticle} onOpenReference={onOpenReference} />
       {visibleQuestions.length > 0 && <QuestionLibrary questions={visibleQuestions} exploredQuestionIds={questionProgress} onToggleQuestionProgress={onToggleQuestionProgress} onOpenArticle={onOpenArticle} />}
       {visibleTestimonies.length > 0 && <ScriptureTestimonyShelf testimonies={visibleTestimonies} onOpenArticle={onOpenArticle} onOpenReference={onOpenReference} />}
-      {category !== 'Study Packs' && (visibleLessons.length > 0 ? <div className="article-grid">{visibleLessons.map((article) => <ArticleCard key={article.id} article={article} onOpen={() => onOpenArticle(article)} />)}</div> : filteredArticles.length === 0 ? <EmptyState icon="search" title="No lessons found" text="Try another search or choose a different topic." /> : null)}
-      {factsInfoAssets.length > 0 && <section className="facts-library-section" aria-labelledby="facts-library-heading"><div className="section-label-row"><div><p className="eyebrow">Facts & Info sources</p><h2 id="facts-library-heading">Research for difficult questions</h2><p className="section-description">These local studies are indexed for review. Open the collection to inspect the source files and their status.</p></div><button className="text-button" type="button" onClick={() => onOpenLibraryGroup?.('Facts & Info')}>Open collection <Icon name="arrow" size={15} /></button></div><div className="facts-library-grid">{factsInfoAssets.map((asset) => <button className="facts-library-card" type="button" key={asset.id} onClick={() => onOpenLibraryGroup?.('Facts & Info')}><span className="facts-library-icon"><Icon name="info" size={19} /></span><span className="facts-library-copy"><strong>{formatSourceTitle(asset.name)}</strong><small>{asset.type} · {asset.reviewStatus === 'source-notice' ? 'Source notice' : 'Review required'}</small></span><Icon name="chevron" size={16} /></button>)}</div></section>}
+      {category !== 'Study Packs' && (visibleLessons.length > 0 ? <div className="article-grid" id="learn-guides">{visibleLessons.map((article) => <ArticleCard key={article.id} article={article} onOpen={() => onOpenArticle(article)} />)}</div> : filteredArticles.length === 0 ? <EmptyState icon="search" title="No lessons found" text="Try another search or choose a different topic." /> : null)}
+      {factsInfoAssets.length > 0 && <section className="facts-library-section" aria-labelledby="facts-library-heading"><div className="section-label-row"><div><p className="eyebrow">Facts & Info sources</p><h2 id="facts-library-heading">Research for difficult questions</h2><p className="section-description">These local studies are indexed for review. Open the collection to inspect the source files and their status.</p></div><button className="text-button" type="button" onClick={() => onOpenLibraryGroup?.('Facts & Info')}>Open collection <Icon name="arrow" size={15} /></button></div><div className="facts-library-grid">{factsInfoAssets.map((asset) => <button className="facts-library-card" type="button" key={asset.id} onClick={() => onOpenLibraryGroup?.('Facts & Info')}><span className="facts-library-icon"><Icon name="info" size={19} /></span><span className="facts-library-copy"><strong>{formatSourceTitle(asset.name)}</strong><small>{asset.type} · {reviewStatusLabel(asset.reviewStatus)}</small></span><Icon name="chevron" size={16} /></button>)}</div></section>}
     </div>
   );
 }
@@ -2357,12 +2758,12 @@ function LearnContentShelf({ articles: articleList = [], sourceAssets = [], stud
   const documentCount = sourceAssets.filter((asset) => ['Reference document', 'Translation source'].includes(asset.type)).length;
   const wordStudyCount = sourceAssets.filter((asset) => ['strongs', 'vines'].includes(String(asset.groupName || '').toLowerCase())).length;
   const cards = [
-    { id: 'foundations', icon: 'learn', tone: 'blue', title: 'Christianity 101', description: 'Foundations, prayer, and daily practice.', count: `${foundationCount} guides`, actionLabel: 'Open foundations', action: () => onSelectCategory?.('Foundations') },
-    { id: 'jesus', icon: 'sunrise', tone: 'gold', title: 'Jesus', description: 'Read the Gospel portrait of Christ.', count: `${jesusCount} studies`, actionLabel: 'Open Jesus studies', action: () => onSelectCategory?.('Jesus') },
-    { id: 'questions', icon: 'dialogue', tone: 'green', title: 'Questions Muslims ask', description: 'Curated answers with compare and Scripture modes.', count: `${questionCount} questions`, actionLabel: 'Open questions', action: () => onSelectCategory?.('Questions') },
-    { id: 'facts', icon: 'info', tone: 'stone', title: 'Facts & Info paths', description: 'Purpose-led reading through the supplied studies.', count: `${factsInfoReadingPaths.length} paths`, actionLabel: 'Open study paths', action: () => onSelectCategory?.('Research') },
-    { id: 'testimonies', icon: 'heart', tone: 'green', title: 'Testimonies in Scripture', description: 'Meet people Jesus finds, heals, restores, and sends.', count: `${testimonyCount} stories`, actionLabel: 'Open testimonies', action: () => onSelectCategory?.('Testimonies') },
-    { id: 'study-packs', icon: 'database', tone: 'gold', title: 'Study packs', description: 'Practical bundles that connect every major learning surface.', count: `${packList.length} packs`, actionLabel: 'Browse packs', action: () => onSelectCategory?.('Study Packs') },
+    { id: 'foundations', icon: 'learn', tone: 'blue', title: 'Christianity 101', description: 'Foundations, prayer, and daily practice.', count: `${foundationCount} guides`, actionLabel: 'Open foundations', action: () => onSelectCategory?.('Foundations', 'learn-guides') },
+    { id: 'jesus', icon: 'sunrise', tone: 'gold', title: 'Jesus', description: 'Read the Gospel portrait of Christ.', count: `${jesusCount} studies`, actionLabel: 'Open Jesus studies', action: () => onSelectCategory?.('Jesus', 'learn-guides') },
+    { id: 'questions', icon: 'dialogue', tone: 'green', title: 'Questions Muslims ask', description: 'Curated answers with compare and Scripture modes.', count: `${questionCount} questions`, actionLabel: 'Open questions', action: () => onSelectCategory?.('Questions', 'learn-question-library') },
+    { id: 'facts', icon: 'info', tone: 'stone', title: 'Facts & Info paths', description: 'Purpose-led reading through the supplied studies.', count: `${factsInfoReadingPaths.length} paths`, actionLabel: 'Open study paths', action: () => onSelectCategory?.('Research', 'learn-facts-paths') },
+    { id: 'testimonies', icon: 'heart', tone: 'green', title: 'Testimonies in Scripture', description: 'Meet people Jesus finds, heals, restores, and sends.', count: `${testimonyCount} stories`, actionLabel: 'Open testimonies', action: () => onSelectCategory?.('Testimonies', 'learn-testimonies') },
+    { id: 'study-packs', icon: 'database', tone: 'gold', title: 'Study packs', description: 'Practical bundles that connect every major learning surface.', count: `${packList.length} packs`, actionLabel: 'Browse packs', action: () => onSelectCategory?.('Study Packs', 'learn-study-packs') },
     { id: 'downloads', icon: 'download', tone: 'gold', title: 'Downloads', description: 'Saved study guides ready to revisit offline.', count: 'Local guides', actionLabel: 'Open downloads', action: onOpenDownloads },
     { id: 'word-study', icon: 'scroll', tone: 'violet', title: "Strong's & Vine's", description: 'Search local definitions, original-language notes, and linked verses.', count: `${wordStudyCount.toLocaleString()} sources`, actionLabel: 'Search word studies', action: onFocusWordStudy },
     { id: 'books', icon: 'database', tone: 'slate', title: 'Books & study documents', description: 'Source documents are catalogued with review status.', count: `${documentCount.toLocaleString()} documents`, actionLabel: 'Open source library', action: () => onOpenLibraryGroup?.('All') },
@@ -2402,7 +2803,7 @@ function StudyPackShelf({ packs = [], savedStudyPacks = [], completedResourcesBy
   const completedCount = selectedPack.resources.filter((resource) => completedResourceIds.includes(resource.id)).length;
   const completionPercent = Math.round((completedCount / selectedPack.resources.length) * 100);
 
-  return <section className="study-pack-shelf" aria-labelledby="study-pack-heading">
+  return <section className="study-pack-shelf" id="learn-study-packs" aria-labelledby="study-pack-heading">
     <SectionArt art={sectionArt.studyPacks} />
     <div className="section-label-row study-pack-heading"><div><p className="eyebrow">Offline study packs</p><h2 id="study-pack-heading">Take a practical next step.</h2><p className="section-description">Each pack brings together the app’s local Bible, Q&amp;A, Facts &amp; Info, prayer, Journey, and Scripture testimony material around one clear purpose.</p></div><span className="library-total"><Icon name="database" size={16} /> {packs.length} packs</span></div>
     <div className="study-pack-layout">
@@ -2473,7 +2874,7 @@ function Downloads({ guides = [], onOpenPack, onOpenLearn, onRemove }) {
 }
 
 function ScriptureTestimonyShelf({ testimonies = [], onOpenArticle, onOpenReference }) {
-  return <section className="scripture-testimony-shelf" aria-labelledby="scripture-testimony-heading">
+  return <section className="scripture-testimony-shelf" id="learn-testimonies" aria-labelledby="scripture-testimony-heading">
     <SectionArt art={sectionArt.testimonies} />
     <div className="section-label-row"><div><p className="eyebrow">Testimonies in Scripture</p><h2 id="scripture-testimony-heading">Notice how Jesus meets people.</h2><p className="section-description">These are Bible narratives, not invented modern biographies. Read the story, follow the passage, and consider what Jesus’ mercy and truth mean for you.</p></div><span className="library-total"><Icon name="heart" size={16} /> {testimonies.length} stories</span></div>
     <div className="scripture-testimony-grid">{testimonies.map((testimony) => <article className="scripture-testimony-card card-surface" key={testimony.id}><div className={`scripture-testimony-icon tone-${testimony.tone}`}><Icon name={testimony.icon} size={22} /></div><div className="scripture-testimony-copy"><p className="card-category">{testimony.readTime}</p><h3>{testimony.title}</h3><p>{testimony.summary}</p><div className="scripture-testimony-actions"><button className="primary-button" type="button" onClick={() => onOpenArticle?.(testimony)}>Read story <Icon name="arrow" size={14} /></button>{testimony.references?.map((reference) => <button className="text-button" type="button" key={reference} onClick={() => onOpenReference?.(reference)}>{reference} <Icon name="book" size={13} /></button>)}</div></div></article>)}</div>
@@ -2552,7 +2953,7 @@ function WordStudyExplorer({ onOpenReference }) {
         <button className="primary-button word-study-explorer-submit" type="submit"><Icon name="search" size={14} /> Search</button>
       </form>
       <p className="word-study-explorer-note"><Icon name="info" size={13} /> Definitions and alignment rows are study aids. Read the linked passage in context and keep the source review status in mind.</p>
-      {loading ? <p className="word-study-loading" role="status"><span className="loading-dot" /> Searching the local word-study index…</p> : normalizedQuery && results.length === 0 ? <p className="word-study-empty" role="status">No local Strong’s or Vine’s entries matched “{normalizedQuery}”. Try a number, a shorter word, or a different spelling.</p> : results.length > 0 ? <div className="word-study-explorer-results" aria-live="polite">
+      {loading ? <p className="word-study-loading" role="status"><span className="loading-dot" /> Searching the local word-study index…</p> : normalizedQuery && results.length === 0 ? <p className="word-study-empty" role="status">No local Strong’s or Vine’s entries matched <span data-private-content="true">“{normalizedQuery}”</span>. Try a number, a shorter word, or a different spelling.</p> : results.length > 0 ? <div className="word-study-explorer-results" aria-live="polite">
         <div className="word-study-explorer-results-heading"><div><p className="eyebrow">Search results</p><h3>{results.length} local entr{results.length === 1 ? 'y' : 'ies'}</h3></div><span>Select an entry to inspect its study trail.</span></div>
         <div className="word-study-list">
           {results.map((entry) => <button className={`word-study-entry ${selectedNumber === entry.strongNumber ? 'selected' : ''}`} type="button" key={entry.strongNumber} onClick={() => setSelectedNumber((current) => current === entry.strongNumber ? null : entry.strongNumber)} aria-expanded={selectedNumber === entry.strongNumber}>
@@ -2609,7 +3010,7 @@ function FactsInfoReadingPaths({ paths, articles, completedSectionsByPath = {}, 
   if (!selectedPath) return null;
 
   return (
-    <section className="facts-reading-section" aria-labelledby="facts-reading-heading">
+    <section className="facts-reading-section" id="learn-facts-paths" aria-labelledby="facts-reading-heading">
       <SectionArt art={sectionArt.factsInfo} />
       <div className="section-label-row facts-reading-heading">
         <div><p className="eyebrow">Facts &amp; Info study paths</p><h2 id="facts-reading-heading">Read the research with a purpose.</h2><p className="section-description">The supplied studies are divided into practical reading paths. Start where your question is, follow the Scripture trail, and return to Jesus at the center.</p></div>
@@ -2700,7 +3101,7 @@ function QuestionLibrary({ questions = [], exploredQuestionIds = [], onToggleQue
   if (!visibleQuestions.length || !selectedQuestion) return null;
 
   return (
-    <section className="question-library" aria-labelledby="question-library-heading">
+    <section className="question-library" id="learn-question-library" aria-labelledby="question-library-heading">
       <div className="section-label-row">
         <div><p className="eyebrow">Common questions</p><h2 id="question-library-heading">Questions Muslims may ask</h2><p className="section-description">Explore respectful, Scripture-linked answers to questions that often arise when comparing Islam and Christianity. Browse by topic when you want a focused starting point.</p></div>
         <span className="question-count">{visibleQuestions.length} of {questions.length} available</span>
@@ -2805,6 +3206,8 @@ function RelatedReading({ article, articles, onOpenArticle }) {
 
 function LocalReadAloud({ title = 'Listen to this study', text = '' }) {
   const [status, setStatus] = useState('idle');
+  const [languageId, setLanguageId] = useState(() => readReaderPreferences().translation);
+  const [translationPending, setTranslationPending] = useState(false);
   const [nativeSpeechAvailable, setNativeSpeechAvailable] = useState(false);
   const [nativeSpeechChecked, setNativeSpeechChecked] = useState(false);
   const utteranceRef = useRef(null);
@@ -2817,6 +3220,15 @@ function LocalReadAloud({ title = 'Listen to this study', text = '' }) {
   const useNativeSpeech = isAndroid && !speechSupported && nativeSpeechAvailable;
 
   if (!nativeUtteranceIdRef.current) nativeUtteranceIdRef.current = `fdl-${Math.random().toString(36).slice(2)}`;
+
+  useEffect(() => {
+    function handleLanguageChange(event) {
+      const nextLanguageId = event.detail || LANGUAGE_OPTIONS.find((option) => option.locale.toLowerCase() === document.documentElement.lang.toLowerCase())?.id || 'en';
+      setLanguageId(getLanguageOption(nextLanguageId).id);
+    }
+    window.addEventListener('fdl-language-change', handleLanguageChange);
+    return () => window.removeEventListener('fdl-language-change', handleLanguageChange);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -2860,6 +3272,7 @@ function LocalReadAloud({ title = 'Listen to this study', text = '' }) {
     if (speechSupported) window.speechSynthesis.cancel();
     if (useNativeSpeech) LocalTextToSpeech.stop().catch(() => undefined);
     utteranceRef.current = null;
+    setTranslationPending(false);
     setStatus('idle');
     return () => {
       sequenceRef.current += 1;
@@ -2867,17 +3280,18 @@ function LocalReadAloud({ title = 'Listen to this study', text = '' }) {
       if (useNativeSpeech) LocalTextToSpeech.stop().catch(() => undefined);
       utteranceRef.current = null;
     };
-  }, [speechSupported, text, useNativeSpeech]);
+  }, [languageId, speechSupported, text, useNativeSpeech]);
 
   function stopSpeech() {
     sequenceRef.current += 1;
     if (speechSupported) window.speechSynthesis.cancel();
     if (useNativeSpeech) LocalTextToSpeech.stop().catch(() => undefined);
     utteranceRef.current = null;
+    setTranslationPending(false);
     setStatus('idle');
   }
 
-  function startSpeech() {
+  async function startSpeech() {
     const cleanText = String(text || '').trim();
     if ((!speechSupported && !useNativeSpeech) || !cleanText) {
       setStatus('error');
@@ -2885,15 +3299,32 @@ function LocalReadAloud({ title = 'Listen to this study', text = '' }) {
     }
     sequenceRef.current += 1;
     const sequence = sequenceRef.current;
+    const selectedLanguage = getLanguageOption(languageId);
+    let spokenText = cleanText;
+    if (languageId !== 'en') {
+      setTranslationPending(true);
+      setStatus('translating');
+      try {
+        spokenText = getCachedAutomaticTranslation(cleanText, languageId)
+          || await requestAutomaticTranslation(cleanText, languageId)
+          || cleanText;
+      } catch {
+        spokenText = cleanText;
+      }
+      if (sequence !== sequenceRef.current) return;
+      setTranslationPending(false);
+    }
+    if (sequence !== sequenceRef.current) return;
     setStatus('playing');
     if (useNativeSpeech) {
-      LocalTextToSpeech.speak({ text: cleanText, utteranceId: nativeUtteranceIdRef.current }).catch(() => {
+      LocalTextToSpeech.speak({ text: spokenText, language: selectedLanguage.locale, utteranceId: nativeUtteranceIdRef.current }).catch(() => {
         if (sequence === sequenceRef.current) setStatus('error');
       });
       return;
     }
     window.speechSynthesis.cancel();
-    const utterance = new window.SpeechSynthesisUtterance(cleanText);
+    const utterance = new window.SpeechSynthesisUtterance(spokenText);
+    utterance.lang = selectedLanguage.locale;
     utterance.onstart = () => { if (sequence === sequenceRef.current) setStatus('playing'); };
     utterance.onend = () => { if (sequence === sequenceRef.current) { utteranceRef.current = null; setStatus('complete'); } };
     utterance.onerror = () => { if (sequence === sequenceRef.current) { utteranceRef.current = null; setStatus('error'); } };
@@ -2914,14 +3345,14 @@ function LocalReadAloud({ title = 'Listen to this study', text = '' }) {
   }
 
   const speechAvailable = speechSupported || useNativeSpeech;
-  const statusText = status === 'playing' ? 'Speaking now' : status === 'paused' ? 'Paused' : status === 'complete' ? 'Finished' : status === 'error' ? 'Voice unavailable' : 'Ready to listen';
+  const statusText = translationPending ? 'Preparing the selected language…' : status === 'playing' ? 'Speaking now' : status === 'paused' ? 'Paused' : status === 'complete' ? 'Finished' : status === 'error' ? 'Voice unavailable' : 'Ready to listen';
   if (isAndroid && !speechSupported && !nativeSpeechChecked) return <div className="local-read-aloud local-read-aloud-unavailable"><Icon name="headphones" size={18} /><div><strong>Checking the local Android voice…</strong><small>The app is checking the speech engine already installed on this device.</small></div></div>;
   if (!speechAvailable) return <div className="local-read-aloud local-read-aloud-unavailable"><Icon name="info" size={18} /><div><strong>Local read-aloud is unavailable here.</strong><small>{isAndroid ? 'Android could not find a usable device speech engine. The study remains available to read offline.' : 'This device or browser does not expose a speech engine. The study remains available to read offline.'}</small></div></div>;
 
   const primaryAction = status === 'playing' ? (useNativeSpeech ? stopSpeech : pauseSpeech) : status === 'paused' ? resumeSpeech : startSpeech;
   const primaryIcon = status === 'playing' ? (useNativeSpeech ? 'stop' : 'pause') : status === 'paused' ? 'play' : 'headphones';
   const primaryLabel = status === 'playing' ? (useNativeSpeech ? 'Stop' : 'Pause') : status === 'paused' ? 'Resume' : status === 'complete' ? 'Listen again' : 'Listen';
-  return <section className="local-read-aloud" aria-label={title}><div className="local-read-aloud-copy"><span className="local-read-aloud-icon"><Icon name="headphones" size={18} /></span><div><p className="eyebrow">Local read-aloud</p><strong>{title}</strong><small>{useNativeSpeech ? 'Uses Android Text-to-Speech already installed on this device.' : 'Uses the device voice. No audio file is downloaded.'}</small></div></div><div className="local-read-aloud-actions"><button className="primary-button" type="button" onClick={primaryAction}><Icon name={primaryIcon} size={14} /> {primaryLabel}</button><button className="local-read-aloud-stop" type="button" onClick={stopSpeech} disabled={status === 'idle'}><Icon name="stop" size={13} /> Stop</button></div><small className="local-read-aloud-status" role="status">{statusText}</small></section>;
+  return <section className="local-read-aloud" aria-label={title}><div className="local-read-aloud-copy"><span className="local-read-aloud-icon"><Icon name="headphones" size={18} /></span><div><p className="eyebrow">Local read-aloud</p><strong>{title}</strong><small>{useNativeSpeech ? 'Uses Android Text-to-Speech already installed on this device.' : 'Uses the device voice. No audio file is downloaded.'}</small></div></div><div className="local-read-aloud-actions"><button className="primary-button" type="button" onClick={primaryAction} disabled={translationPending}><Icon name={primaryIcon} size={14} /> {translationPending ? 'Preparing…' : primaryLabel}</button><button className="local-read-aloud-stop" type="button" onClick={stopSpeech} disabled={status === 'idle'}><Icon name="stop" size={13} /> Stop</button></div><small className="local-read-aloud-status" role="status">{statusText}</small></section>;
 }
 
 function Prayer({ entries = [], onSaveEntry, onToggleEntry, onDeleteEntry, onOpenReference }) {
@@ -2967,7 +3398,7 @@ function Prayer({ entries = [], onSaveEntry, onToggleEntry, onDeleteEntry, onOpe
         </section>
         <aside className="prayer-aside">
           {selectedPrayer && <section className="selected-prayer-card"><div className="selected-prayer-heading"><div><p className="eyebrow">Selected prayer</p><h2>{selectedPrayer.title}</h2></div><span className={`guided-prayer-icon tone-${selectedPrayer.tone}`}><Icon name={selectedPrayer.icon} size={20} /></span></div><p className="selected-prayer-text">{selectedPrayer.prayer}</p><span className="selected-prayer-reference">{selectedPrayer.reference}</span><LocalReadAloud title="Listen to this prayer" text={selectedPrayer.prayer} /><button className="primary-button" type="button" onClick={useGuidedPrayer}>Use in journal <Icon name="arrow" size={16} /></button></section>}
-          <section className="prayer-journal-card card-surface" aria-labelledby="prayer-journal-heading"><div className="section-label-row"><div><p className="eyebrow">Private journal</p><h2 id="prayer-journal-heading">Write it down</h2></div><Icon name="bookmark" size={19} /></div><p className="prayer-journal-description">Your entries stay in this app on this device. They are included in the local delete/reset control.</p><form className="prayer-journal-form" onSubmit={saveJournalEntry}><label htmlFor="prayer-entry">Prayer or reflection</label><textarea id="prayer-entry" value={journalDraft} onChange={(event) => setJournalDraft(event.target.value)} placeholder="Write what is on your heart..." rows={5} maxLength={2000} /><div className="prayer-journal-actions"><span>{journalDraft.length}/2000</span><button className="primary-button" type="submit">Save privately <Icon name="check" size={15} /></button></div>{journalMessage && <p className="prayer-journal-message" role="status">{journalMessage}</p>}</form>{entries.length > 0 ? <div className="prayer-entry-list">{entries.map((entry) => <article className={`prayer-entry ${entry.status === 'answered' ? 'answered' : ''}`} key={entry.id}><div className="prayer-entry-heading"><span>{formatEntryDate(entry.createdAt)}</span><div><button type="button" onClick={() => onToggleEntry?.(entry.id)} aria-label={`${entry.status === 'answered' ? 'Mark' : 'Mark'} prayer ${entry.status === 'answered' ? 'ongoing' : 'answered'}`}>{entry.status === 'answered' ? 'Answered' : 'Ongoing'}</button><button className="prayer-entry-delete" type="button" onClick={() => onDeleteEntry?.(entry.id)} aria-label="Delete prayer journal entry"><Icon name="close" size={14} /></button></div></div><p>{entry.text}</p></article>)}</div> : <div className="prayer-entry-empty"><Icon name="bookmark" size={18} /><span>Your saved prayers will appear here.</span></div>}</section>
+          <section className="prayer-journal-card card-surface" aria-labelledby="prayer-journal-heading"><div className="section-label-row"><div><p className="eyebrow">Private journal</p><h2 id="prayer-journal-heading">Write it down</h2></div><Icon name="bookmark" size={19} /></div><p className="prayer-journal-description">Your entries stay in this app on this device. They are included in the local delete/reset control.</p><form className="prayer-journal-form" onSubmit={saveJournalEntry}><label htmlFor="prayer-entry">Prayer or reflection</label><textarea id="prayer-entry" value={journalDraft} onChange={(event) => setJournalDraft(event.target.value)} placeholder="Write what is on your heart..." rows={5} maxLength={2000} /><div className="prayer-journal-actions"><span>{journalDraft.length}/2000</span><button className="primary-button" type="submit">Save privately <Icon name="check" size={15} /></button></div>{journalMessage && <p className="prayer-journal-message" role="status">{journalMessage}</p>}</form>{entries.length > 0 ? <div className="prayer-entry-list">{entries.map((entry) => <article className={`prayer-entry ${entry.status === 'answered' ? 'answered' : ''}`} key={entry.id}><div className="prayer-entry-heading"><span>{formatEntryDate(entry.createdAt)}</span><div><button type="button" onClick={() => onToggleEntry?.(entry.id)} aria-label={`${entry.status === 'answered' ? 'Mark' : 'Mark'} prayer ${entry.status === 'answered' ? 'ongoing' : 'answered'}`}>{entry.status === 'answered' ? 'Answered' : 'Ongoing'}</button><button className="prayer-entry-delete" type="button" onClick={() => onDeleteEntry?.(entry.id)} aria-label="Delete prayer journal entry"><Icon name="close" size={14} /></button></div></div><p data-private-content="true">{entry.text}</p></article>)}</div> : <div className="prayer-entry-empty"><Icon name="bookmark" size={18} /><span>Your saved prayers will appear here.</span></div>}</section>
         </aside>
       </div>
     </div>
@@ -3119,7 +3550,7 @@ function JourneyStep({ lesson, complete, available, selected, onToggle, onSelect
   return <div className={`journey-step ${complete ? 'complete' : ''} ${selected ? 'selected' : ''} ${locked ? 'locked' : ''}`}><button className="step-marker" type="button" onClick={locked ? undefined : onToggle} disabled={locked} aria-label={`${complete ? 'Mark' : 'Complete'} ${lesson.title}`}>{complete ? <Icon name="check" size={16} /> : <Icon name={locked ? 'lock' : lesson.icon} size={16} />}</button><button className="step-select" type="button" onClick={onSelect} disabled={locked}><span className="step-copy"><strong>{lesson.title}</strong><span>{lesson.subtitle}</span></span></button>{locked ? <span className="step-locked">Soon</span> : <button className="step-action" type="button" onClick={onSelect}>{selected ? 'Open' : complete ? 'Review' : 'Start'} <Icon name="arrow" size={14} /></button>}</div>;
 }
 
-function Saved({ verses: verseList, bookmarks, highlights = [], notes = {}, journeyReflections = {}, savedStudyPacks = [], toggleBookmark, toggleHighlight, saveNote, onOpenArticle, onOpenLesson, onOpenReference, onOpenStudyPack, onToggleStudyPack, navigate, savedFolders = [], savedFolderAssignments = {}, onCreateFolder, onDeleteFolder, onAssignFolder }) {
+function Saved({ verses: verseList, languageId = 'en', bookmarks, highlights = [], notes = {}, journeyReflections = {}, savedStudyPacks = [], toggleBookmark, toggleHighlight, saveNote, onOpenArticle, onOpenLesson, onOpenReference, onOpenStudyPack, onToggleStudyPack, navigate, savedFolders = [], savedFolderAssignments = {}, onCreateFolder, onDeleteFolder, onAssignFolder }) {
   const [savedVerses, setSavedVerses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savedView, setSavedView] = useState('all');
@@ -3217,7 +3648,7 @@ function Saved({ verses: verseList, bookmarks, highlights = [], notes = {}, jour
     <SectionIntro eyebrow="Your library" title="Saved for later." description="Your bookmarks, highlights, and notes stay on this device in the prototype." />
     <SectionArt art={sectionArt.saved} />
     <div className="saved-summary">
-      <div><span className="summary-number">{folderSavedArticles.length + folderSavedPacks.length + folderSavedReflections.length + folderSavedVerseIds.length}</span><span>{selectedFolder ? selectedFolder.label : 'saved items'}</span></div>
+      <div><span className="summary-number">{folderSavedArticles.length + folderSavedPacks.length + folderSavedReflections.length + folderSavedVerseIds.length}</span><span data-private-content={selectedFolder?.id?.startsWith('custom-') ? 'true' : undefined}>{selectedFolder ? selectedFolder.label : 'saved items'}</span></div>
       <div><span className="summary-number">{folderSavedArticles.length + folderSavedPacks.length + folderSavedReflections.length}</span><span>learning items</span></div>
       <div><span className="summary-number">{folderSavedVerseIds.length}</span><span>passages</span></div>
     </div>
@@ -3235,11 +3666,11 @@ function Saved({ verses: verseList, bookmarks, highlights = [], notes = {}, jour
     </section>}
     {showReflections && folderSavedReflections.length > 0 && <section className="saved-section">
       <div className="section-label-row"><div><p className="eyebrow">Journey reflections</p><h2>Thoughts to return to</h2></div><span className="saved-section-status">{folderSavedReflections.length} saved</span></div>
-      <div className="saved-reflection-list">{folderSavedReflections.map(({ lesson, itemId, reflection }) => <article className="saved-reflection" key={itemId}><div className="saved-reflection-heading"><div><span>Lesson {lesson.id}</span><h3>{lesson.title}</h3></div><button className="text-button" type="button" onClick={() => onOpenLesson?.(lesson.id)}>Open lesson <Icon name="arrow" size={13} /></button></div><p>{reflection.text}</p><div className="saved-reflection-footer"><span>{reflection.updatedAt ? `Updated ${new Date(reflection.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Saved privately'}</span><SavedFolderSelect itemId={itemId} folders={savedFolders} assignments={savedFolderAssignments} onAssign={onAssignFolder} label={`Folder for reflection on ${lesson.title}`} /></div></article>)}</div>
+      <div className="saved-reflection-list">{folderSavedReflections.map(({ lesson, itemId, reflection }) => <article className="saved-reflection" key={itemId}><div className="saved-reflection-heading"><div><span>Lesson {lesson.id}</span><h3>{lesson.title}</h3></div><button className="text-button" type="button" onClick={() => onOpenLesson?.(lesson.id)}>Open lesson <Icon name="arrow" size={13} /></button></div><p data-private-content="true">{reflection.text}</p><div className="saved-reflection-footer"><span>{reflection.updatedAt ? `Updated ${new Date(reflection.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Saved privately'}</span><SavedFolderSelect itemId={itemId} folders={savedFolders} assignments={savedFolderAssignments} onAssign={onAssignFolder} label={`Folder for reflection on ${lesson.title}`} /></div></article>)}</div>
     </section>}
     {showPassages && filteredVerses.length > 0 && <section className="saved-section">
       <div className="section-label-row"><div><p className="eyebrow">Bible passages</p><h2>Words to return to</h2></div><span className="saved-section-status">{loading ? 'Loading local passages…' : `${filteredVerses.length} shown`}</span></div>
-      <div className="saved-verse-list">{filteredVerses.map((verse) => { const id = stableVerseId(verse); const isBookmarked = bookmarks.includes(id); const isHighlighted = highlights.includes(id); const note = notes[id]; return <article className="saved-verse" key={id}><button className="saved-verse-open" type="button" onClick={() => openVerse(verse)}><span className="saved-verse-reference">{verse.reference}</span><p>{verse.text}</p>{note && <small className="saved-verse-note"><Icon name="dialogue" size={12} /> {note}</small>}</button><div className="saved-verse-status" aria-label="Saved passage details">{isBookmarked && <span title="Bookmarked"><Icon name="bookmark" size={13} /></span>}{isHighlighted && <button className="saved-verse-status-button" type="button" onClick={() => toggleHighlight?.(id)} title="Remove highlight" aria-label={`Remove highlight from ${verse.reference}`}><Icon name="sun" size={13} /></button>}{note && <button className="saved-verse-status-button" type="button" onClick={() => saveNote?.(id, '')} title="Remove private note" aria-label={`Remove private note from ${verse.reference}`}><Icon name="dialogue" size={13} /></button>}</div>{isBookmarked && <button className="saved-verse-remove" type="button" onClick={() => toggleBookmark(id)} aria-label={`Remove bookmark from ${verse.reference}`}><Icon name="close" size={15} /></button>}<SavedFolderSelect itemId={id} folders={savedFolders} assignments={savedFolderAssignments} onAssign={onAssignFolder} label={`Folder for ${verse.reference}`} /></article>; })}</div>
+      <div className="saved-verse-list">{filteredVerses.map((verse) => { const id = stableVerseId(verse); const isBookmarked = bookmarks.includes(id); const isHighlighted = highlights.includes(id); const note = notes[id]; const hasLocalVerseTranslation = Boolean(verse.translations?.[languageId]); const displayedVerseText = verse.translations?.[languageId] || verse.text; return <article className="saved-verse" key={id}><button className="saved-verse-open" type="button" onClick={() => openVerse(verse)}><span className="saved-verse-reference">{verse.reference}</span><p data-no-translate={hasLocalVerseTranslation ? 'true' : undefined}>{displayedVerseText}</p>{note && <small className="saved-verse-note" data-private-content="true"><Icon name="dialogue" size={12} /> {note}</small>}</button><div className="saved-verse-status" aria-label="Saved passage details">{isBookmarked && <span title="Bookmarked"><Icon name="bookmark" size={13} /></span>}{isHighlighted && <button className="saved-verse-status-button" type="button" onClick={() => toggleHighlight?.(id)} title="Remove highlight" aria-label={`Remove highlight from ${verse.reference}`}><Icon name="sun" size={13} /></button>}{note && <button className="saved-verse-status-button" type="button" onClick={() => saveNote?.(id, '')} title="Remove private note" aria-label={`Remove private note from ${verse.reference}`}><Icon name="dialogue" size={13} /></button>}</div>{isBookmarked && <button className="saved-verse-remove" type="button" onClick={() => toggleBookmark(id)} aria-label={`Remove bookmark from ${verse.reference}`}><Icon name="close" size={15} /></button>}<SavedFolderSelect itemId={id} folders={savedFolders} assignments={savedFolderAssignments} onAssign={onAssignFolder} label={`Folder for ${verse.reference}`} /></article>; })}</div>
     </section>}
     {!hasVisibleContent && <section className="saved-section"><EmptyState icon={savedView === 'articles' ? 'book' : 'bookmark'} title={loading ? 'Loading saved passages…' : `No ${selectedViewLabel.toLowerCase()} yet`} text={savedView === 'all' ? 'Bookmark an article, highlight a verse, or add a private note and it will appear here.' : 'This view updates from your private on-device study state.'} action={<button className="text-button" type="button" onClick={() => navigate(savedView === 'articles' ? 'learn' : 'bible')}>{savedView === 'articles' ? 'Open Learn' : 'Open the Bible'} <Icon name="arrow" size={15} /></button>} /></section>}
   </div>;
@@ -3259,7 +3690,7 @@ function SavedFolderShelf({ folders = [], counts = {}, selectedFolderId = 'all',
     <div className="saved-folder-heading"><div><p className="eyebrow">Private folders</p><h2 id="saved-folder-heading">Keep your questions close.</h2><p className="section-description">Group saved passages and articles by theme. Folders stay only on this device.</p></div><Icon name="bookmark" size={21} /></div>
     <div className="saved-folder-grid">
       <button className={`saved-folder-chip ${selectedFolderId === 'all' ? 'active' : ''}`} type="button" onClick={() => onSelectFolder?.('all')}><span className="saved-folder-chip-icon"><Icon name="database" size={15} /></span><span><strong>All saved</strong><small>Everything</small></span></button>
-      {folders.map((folder) => <div className="saved-folder-chip-wrap" key={folder.id}><button className={`saved-folder-chip ${selectedFolderId === folder.id ? 'active' : ''}`} type="button" onClick={() => onSelectFolder?.(folder.id)} title={folder.description}><span className="saved-folder-chip-icon"><Icon name={iconForFolder(folder.id)} size={15} /></span><span><strong>{folder.label}</strong><small>{counts[folder.id] || 0} item{counts[folder.id] === 1 ? '' : 's'}</small></span></button>{folder.id.startsWith('custom-') && <button className="saved-folder-delete" type="button" onClick={() => onDeleteFolder?.(folder.id)} aria-label={`Delete ${folder.label} folder`} title="Delete folder"><Icon name="close" size={13} /></button>}</div>)}
+      {folders.map((folder) => <div className="saved-folder-chip-wrap" key={folder.id}><button className={`saved-folder-chip ${selectedFolderId === folder.id ? 'active' : ''}`} data-private-content={folder.id.startsWith('custom-') ? 'true' : undefined} type="button" onClick={() => onSelectFolder?.(folder.id)} title={folder.description}><span className="saved-folder-chip-icon"><Icon name={iconForFolder(folder.id)} size={15} /></span><span><strong>{folder.label}</strong><small>{counts[folder.id] || 0} item{counts[folder.id] === 1 ? '' : 's'}</small></span></button>{folder.id.startsWith('custom-') && <button className="saved-folder-delete" data-private-content="true" type="button" onClick={() => onDeleteFolder?.(folder.id)} aria-label={`Delete ${folder.label} folder`} title="Delete folder"><Icon name="close" size={13} /></button>}</div>)}
     </div>
     <form className="saved-folder-form" onSubmit={onSubmit}><label htmlFor="new-saved-folder"><span>New private folder</span><input id="new-saved-folder" value={newFolderName} onChange={(event) => onChangeFolderName?.(event.target.value)} maxLength={32} placeholder="e.g. Gospel conversations" /></label><button className="secondary-button" type="submit"><Icon name="check" size={15} /> Create folder</button></form>
     {message && <p className="saved-folder-message" role="status"><Icon name="check" size={13} /> {message}</p>}
@@ -3267,14 +3698,44 @@ function SavedFolderShelf({ folders = [], counts = {}, selectedFolderId = 'all',
 }
 
 function SavedFolderSelect({ itemId, folders = [], assignments = {}, onAssign, label }) {
-  return <label className="saved-item-folder"><span className="sr-only">{label}</span><Icon name="bookmark" size={13} /><select aria-label={label} value={assignments[itemId] || ''} onChange={(event) => onAssign?.(itemId, event.target.value)}><option value="">No folder</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.label}</option>)}</select><Icon name="chevron" size={11} /></label>;
+  return <label className="saved-item-folder"><span className="sr-only">{label}</span><Icon name="bookmark" size={13} /><select aria-label={label} value={assignments[itemId] || ''} onChange={(event) => onAssign?.(itemId, event.target.value)}><option value="">No folder</option>{folders.map((folder) => <option key={folder.id} value={folder.id} data-private-content={folder.id.startsWith('custom-') ? 'true' : undefined}>{folder.label}</option>)}</select><Icon name="chevron" size={11} /></label>;
 }
 
 function EmptyState({ icon, title, text, action }) {
   return <div className="empty-state"><span><Icon name={icon} size={24} /></span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
 
-function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyNotice, setShowPrivacyNotice, updateState, onCheckUpdates, onUpdateAction, contentDatabase, onOpenLibrary, privacyPinEnabled, biometricAvailable, biometricEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onEnableBiometric, onDisableBiometric, onLockApp, onQuickClose, onDeletePrivateData, onShowOnboarding }) {
+function LanguageSettings({ readerPreferences, updateReaderPreference }) {
+  const selectedLanguage = getLanguageOption(readerPreferences?.translation);
+  const copy = (key, fallback) => getLanguageCopy(selectedLanguage.id, key, fallback);
+  const isAndroid = Capacitor.getPlatform() === 'android';
+
+  function selectLanguage(languageId) {
+    const nextLanguage = getLanguageOption(languageId);
+    updateReaderPreference?.('translation', nextLanguage.id);
+    if (isAndroid && typeof LocalTextToSpeech.setLanguage === 'function') {
+      LocalTextToSpeech.setLanguage({ language: nextLanguage.locale }).catch(() => undefined);
+    }
+  }
+
+  function openVoiceLanguages() {
+    if (isAndroid && typeof LocalTextToSpeech.openTtsSettings === 'function') {
+      LocalTextToSpeech.openTtsSettings().catch(() => undefined);
+    }
+  }
+
+  return <div className="setting-row language-setting-row">
+    <span className="setting-row-icon"><Icon name="globe" size={18} /></span>
+    <span className="setting-row-copy"><strong>{copy('settings.language', 'Language')}</strong><small>{copy('settings.languageDescription', 'Choose the language for Scripture text and local read-aloud.')}</small><em>{copy('settings.languageNote', 'English is the main language. More reviewed language packs can be added as they become available.')}</em></span>
+    <label className="language-setting-control"><span className="sr-only">{copy('settings.language', 'Language')}</span><select value={selectedLanguage.id} onChange={(event) => selectLanguage(event.target.value)}>{LANGUAGE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.nativeLabel} · {option.label}</option>)}</select><Icon name="chevron" size={14} /></label>
+    {isAndroid && <button className="text-button language-download-button" type="button" onClick={openVoiceLanguages}><Icon name="download" size={14} /> {copy('settings.downloadVoices', 'Manage Android voice languages')}</button>}
+    <small className="language-setting-note">{copy('settings.downloadVoicesNote', 'Download or update voices from the Android speech engine. The app uses the system/default voice for the selected language.')}</small>
+    <small className="language-setting-note">{copy('settings.translationPrivacy', 'Only public app text is sent for translation. Private notes, reflections, and typed searches stay on this device.')}</small>
+  </div>;
+}
+
+function Settings({ discreetMode, setDiscreetMode, offlineMode = false, setOfflineMode, theme, setTheme, readerPreferences, updateReaderPreference, showPrivacyNotice, setShowPrivacyNotice, updateState, onCheckUpdates, onUpdateAction, contentDatabase, onOpenLibrary, privacyPinEnabled, biometricAvailable, biometricEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onEnableBiometric, onDisableBiometric, onLockApp, onQuickClose, onDeletePrivateData, onShowOnboarding }) {
+  const [showLegalInformation, setShowLegalInformation] = useState(false);
   const databaseValue = contentDatabase?.status === 'ready'
     ? `${contentDatabase.sourceAssetCount.toLocaleString()} sources · ${contentDatabase.bibleBookCount || 0} books · ${(contentDatabase.lexiconEntryCount || 0).toLocaleString()} terms`
     : contentDatabase?.status === 'loading' ? 'Loading locally' : 'Sample fallback';
@@ -3283,42 +3744,105 @@ function Settings({ discreetMode, setDiscreetMode, theme, setTheme, showPrivacyN
     : contentDatabase?.errorMessage || 'The bundled sample remains available';
   return (
     <div className="settings-page page-enter">
-      <SectionIntro eyebrow="Safe & private" title="Settings" description="You are in control of what this app remembers and reveals." />
+      <SectionIntro eyebrow={getLanguageCopy(readerPreferences?.translation, 'settings.eyebrow', 'Safe & private')} title={getLanguageCopy(readerPreferences?.translation, 'settings.title', 'Settings')} description={getLanguageCopy(readerPreferences?.translation, 'settings.description', 'You are in control of what this app remembers and reveals.')} />
       <SectionArt art={sectionArt.settings} />
       <div className="settings-layout">
         <section className="settings-main">
           <div className="discreet-card">
             <div className="discreet-icon"><Icon name="shield" size={28} /></div>
             <div className="setting-copy">
-              <div className="setting-title-row"><h2>Discreet Mode</h2><Toggle checked={discreetMode} onChange={() => setDiscreetMode(!discreetMode)} /></div>
+              <div className="setting-title-row"><h2>Discreet Mode</h2><Toggle label="Discreet Mode" checked={discreetMode} onChange={() => setDiscreetMode(!discreetMode)} /></div>
               <p>Reduces casual discovery by keeping the experience quiet on this device. On Android, it also requests screenshot and recent-task preview protection while enabled. Operating-system behavior can vary, and it cannot guarantee complete privacy.</p>
               <button className="text-button subtle" type="button" onClick={() => setShowPrivacyNotice(true)}>Understand the limits <Icon name="arrow" size={14} /></button>
             </div>
           </div>
+          <div className="discreet-card offline-mode-card">
+            <div className="discreet-icon"><Icon name="database" size={28} /></div>
+            <div className="setting-copy">
+              <div className="setting-title-row"><h2>Offline-only mode</h2><Toggle label="Offline-only mode" checked={offlineMode} onChange={() => setOfflineMode?.(!offlineMode)} /></div>
+              <p>When enabled, the app pauses GitHub update checks and automatic online translation requests. Bundled Bible text, local content, and translations already cached on this device continue to work.</p>
+              <small className="setting-boundary-note">Turn this off when you want to check for a new release or translate uncached public text.</small>
+            </div>
+          </div>
           <div className="settings-list">
-            <SettingRow icon="globe" title="Language" value="English" />
+            <LanguageSettings readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} />
             <div className="setting-row">
               <span className="setting-row-icon"><Icon name={theme === 'light' ? 'sun' : 'moon'} size={18} /></span>
-              <span className="setting-row-copy"><strong>App appearance</strong><small>Choose how the app feels at night</small></span>
+              <span className="setting-row-copy"><strong>{getLanguageCopy(readerPreferences?.translation, 'settings.appearance', 'App appearance')}</strong><small>{getLanguageCopy(readerPreferences?.translation, 'settings.appearanceDescription', 'Choose how the app feels at night')}</small></span>
               <div className="appearance-toggle"><button className={theme === 'light' ? 'selected' : ''} type="button" onClick={() => setTheme('light')}><Icon name="sun" size={15} /> Light</button><button className={theme === 'dark' ? 'selected' : ''} type="button" onClick={() => setTheme('dark')}><Icon name="moon" size={15} /> Dark</button></div>
             </div>
             <SettingRow icon="lock" title="Privacy & security" value="Local only" />
             <SettingRow icon="database" title="Offline content database" value={databaseValue} description={databaseDescription} />
-            <SettingRow icon="bell" title="Notifications" value="Quiet by default" />
-            <SettingRow icon="info" title="About this prototype" value={`v${APP_VERSION}`} />
+            <SettingRow icon="bell" title="Notifications" value="None active" description="This build creates no notifications or notification-history entries." />
+            <SettingRow icon="info" title="About, terms & credits" value={`v${APP_VERSION}`} description="Who made this app, how to use its content, and the current rights record" onClick={() => setShowLegalInformation(true)} />
           </div>
           <ContentAttributionCard contentDatabase={contentDatabase} onOpenLibrary={onOpenLibrary} />
           <section className="welcome-guide-card card-surface" aria-labelledby="welcome-guide-heading"><div className="welcome-guide-icon"><Icon name="compass" size={22} /></div><div><p className="eyebrow">Need a reset?</p><h2 id="welcome-guide-heading">Review the welcome guide</h2><p>Reopen the short introduction to the Bible, Journey, and privacy boundaries without changing your saved study state.</p><button className="text-button" type="button" onClick={onShowOnboarding}>Show welcome guide <Icon name="arrow" size={14} /></button></div></section>
-          <UpdateSettings updateState={updateState} onCheckUpdates={onCheckUpdates} onUpdateAction={onUpdateAction} />
+          <UpdateSettings updateState={updateState} offlineMode={offlineMode} onCheckUpdates={onCheckUpdates} onUpdateAction={onUpdateAction} />
           <PrivacyLockSettings enabled={privacyPinEnabled} biometricAvailable={biometricAvailable} biometricEnabled={biometricEnabled} onEnable={onEnablePrivacyLock} onDisable={onDisablePrivacyLock} onEnableBiometric={onEnableBiometric} onDisableBiometric={onDisableBiometric} onLock={onLockApp} onQuickClose={onQuickClose} />
           <PrivateDataSettings onDelete={onDeletePrivateData} />
         </section>
         <aside className="settings-aside">
           <div className="not-alone-card"><div className="cross-circle"><Icon name="cross" size={36} /></div><p>You are not alone.<br />There is hope.</p><em>Jesus loves you.</em></div>
-          <div className="prototype-note"><Icon name="info" size={17} /><p><strong>Prototype boundary</strong><span>Saved state uses local browser storage. No account, sync, analytics, or remote content is connected.</span></p></div>
+          <div className="prototype-note"><Icon name="info" size={17} /><p><strong>Prototype boundary</strong><span>Saved state uses local app storage. No account, sync, analytics, or remote content is connected. The Android app excludes private study state from cloud backup and device-to-device transfer.</span></p></div>
         </aside>
       </div>
       {showPrivacyNotice && <PrivacyNotice onClose={() => setShowPrivacyNotice(false)} />}
+      {showLegalInformation && <LegalInformationModal onClose={() => setShowLegalInformation(false)} />}
+    </div>
+  );
+}
+
+function LegalExternalLink({ link }) {
+  return <button className="legal-external-link" type="button" onClick={() => openLegalExternalLink(link.url)}>{link.label}<Icon name="arrow" size={13} /></button>;
+}
+
+function LegalInformationModal({ onClose }) {
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, onClose);
+
+  return (
+    <div className="modal-backdrop legal-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} className="legal-modal" role="dialog" aria-modal="true" aria-labelledby="legal-modal-title" tabIndex="-1">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Close about and rights information"><Icon name="close" size={18} /></button>
+        <div className="legal-modal-heading">
+          <div><p className="eyebrow">About this app</p><h2 id="legal-modal-title">About, terms & rights</h2><p>Clear information about the project, its sources, and the limits of using this private prototype.</p></div>
+          <span className="legal-version">v{APP_VERSION}<small>Reviewed {LEGAL_APP_INFO.reviewDate}</small></span>
+        </div>
+        <nav className="legal-jump-links" aria-label="About and rights sections">
+          <a href="#legal-about">About</a><a href="#legal-terms">Terms &amp; Conditions</a><a href="#legal-rights">Rights &amp; Usage</a><a href="#legal-credits">Credits</a>
+        </nav>
+
+        <section id="legal-about" className="legal-panel" aria-labelledby="legal-about-title">
+          <div className="legal-panel-heading"><span className="legal-panel-icon"><Icon name="sunrise" size={19} /></span><div><p className="eyebrow">Independent project</p><h3 id="legal-about-title">Made by {LEGAL_APP_INFO.creatorName}</h3></div></div>
+          <p>From Islam to Christ is a creator-led Bible study project built to help Muslim-background seekers and other curious readers explore Jesus Christ, Scripture, prayer, and Christian faith at a thoughtful pace. The app is local-first and designed for private study, with no account, advertising, reading-history analytics, or connected mentor service.</p>
+          <div className="legal-about-facts"><div><strong>Project steward</strong><span>{LEGAL_APP_INFO.creatorName}</span></div><div><strong>Product</strong><span>{LEGAL_APP_INFO.productName}</span></div><div><strong>Repository</strong><span>{LEGAL_APP_INFO.repositoryLabel}</span></div></div>
+          <div className="legal-link-row"><LegalExternalLink link={{ label: 'Open the official GitHub repository', url: LEGAL_APP_INFO.repositoryUrl }} /></div>
+        </section>
+
+        <section id="legal-terms" className="legal-panel" aria-labelledby="legal-terms-title">
+          <div className="legal-panel-heading"><span className="legal-panel-icon"><Icon name="scroll" size={19} /></span><div><p className="eyebrow">Plain-language notice</p><h3 id="legal-terms-title">Terms &amp; Conditions</h3></div></div>
+          <p className="legal-panel-lede">By using this prototype, you agree to use it lawfully and to respect the rights and safety boundaries described here. This notice is product information, not a substitute for qualified legal advice.</p>
+          <div className="legal-text-sections">{LEGAL_TERMS_SECTIONS.map((section) => <article key={section.title}><h4>{section.title}</h4>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</article>)}</div>
+        </section>
+
+        <section id="legal-rights" className="legal-panel" aria-labelledby="legal-rights-title">
+          <div className="legal-panel-heading"><span className="legal-panel-icon"><Icon name="shield" size={19} /></span><div><p className="eyebrow">Read before copying or sharing</p><h3 id="legal-rights-title">Rights &amp; Usage</h3></div></div>
+          <p className="legal-panel-lede">A source being available on GitHub, present in the local Data folder, or bundled into this prototype does not automatically grant permission to redistribute it. The current release gate intentionally keeps unresolved source rights visible.</p>
+          <div className="legal-text-sections">{LEGAL_RIGHTS_SECTIONS.map((section) => <article key={section.title}><div className="legal-article-heading"><h4>{section.title}</h4><span>{section.status}</span></div>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}{section.links?.length > 0 && <div className="legal-link-row">{section.links.map((link) => <LegalExternalLink key={link.url} link={link} />)}</div>}</article>)}</div>
+        </section>
+
+        <section id="legal-credits" className="legal-panel" aria-labelledby="legal-credits-title">
+          <div className="legal-panel-heading"><span className="legal-panel-icon"><Icon name="database" size={19} /></span><div><p className="eyebrow">With gratitude and care</p><h3 id="legal-credits-title">Credits &amp; source record</h3></div></div>
+          <p className="legal-panel-lede">These credits reflect the supplied local documentation and the current technical review. They are not a replacement for the license files, notices, and permissions that must accompany a cleared release.</p>
+          <div className="legal-credit-list">{LEGAL_SOURCE_CREDITS.map((credit) => <article className="legal-credit-card" key={credit.name}><div className="legal-credit-heading"><h4>{credit.name}</h4><Icon name="book" size={16} /></div><p><strong>Credit:</strong> {credit.credit}</p><p><strong>Rights record:</strong> {credit.terms}</p>{credit.links?.length > 0 && <div className="legal-link-row">{credit.links.map((link) => <LegalExternalLink key={link.url} link={link} />)}</div>}</article>)}</div>
+          <div className="legal-credit-subsection"><p className="eyebrow">Software and platform credits</p><div className="legal-software-list">{LEGAL_SOFTWARE_CREDITS.map((credit) => <div key={credit.name}><strong>{credit.name}</strong><span>{credit.detail}</span></div>)}</div></div>
+          <div className="legal-credit-subsection"><p className="eyebrow">External service notices</p><div className="legal-service-list">{LEGAL_EXTERNAL_SERVICES.map((service) => <div key={service.name}><div><strong>{service.name}</strong><span>{service.detail}</span></div><LegalExternalLink link={{ label: 'Service information', url: service.url }} /></div>)}</div></div>
+          <p className="legal-footer-note"><Icon name="info" size={14} /> For the full source-by-source status, see the project’s Content Review Report and the Source Library inside the app. The current audit reports 1,566 indexed local assets and 0 cleared assets, so this prototype is not a rights-cleared public release.</p>
+        </section>
+
+        <div className="legal-modal-footer"><span>Project record: {LEGAL_APP_INFO.repositoryLabel}</span><button className="primary-button" type="button" onClick={onClose}>Close <Icon name="check" size={15} /></button></div>
+      </section>
     </div>
   );
 }
@@ -3328,25 +3852,29 @@ function ContentAttributionCard({ contentDatabase, onOpenLibrary }) {
   const reviewCount = assets.filter((asset) => asset.reviewStatus === 'needs-review').length;
   const noticeCount = assets.filter((asset) => asset.reviewStatus === 'source-notice').length;
   const clearedCount = assets.filter((asset) => asset.reviewStatus === 'cleared').length;
-  const releaseReady = assets.length > 0 && reviewCount === 0 && noticeCount === 0;
+  const unclassifiedCount = assets.filter((asset) => !['cleared', 'needs-review', 'source-notice'].includes(asset.reviewStatus)).length;
+  const pendingCount = assets.length - clearedCount;
+  const releaseReady = assets.length > 0 && pendingCount === 0;
 
   return <section className="attribution-card card-surface" aria-labelledby="attribution-heading">
     <div className="attribution-heading"><div><p className="eyebrow">Content stewardship</p><h2 id="attribution-heading">Sources & attribution</h2></div><span className={`attribution-status ${releaseReady ? 'ready' : 'pending'}`}>{releaseReady ? 'Release ready' : 'Review pending'}</span></div>
     <p className="attribution-description">The app indexes the local Data catalog so every source can be traced. A file being present on this device does not automatically grant permission to redistribute it.</p>
-    <div className="attribution-stats" aria-label="Content review counts"><div><strong>{assets.length.toLocaleString()}</strong><span>indexed</span></div><div><strong>{clearedCount.toLocaleString()}</strong><span>cleared</span></div><div><strong>{(reviewCount + noticeCount).toLocaleString()}</strong><span>pending</span></div></div>
-    <p className="attribution-note"><Icon name="info" size={15} /><span>{reviewCount.toLocaleString()} assets require license/attribution review and {noticeCount.toLocaleString()} contain notice or license material. Public release remains gated until each packaged asset has a confirmed status.</span></p>
+    <div className="attribution-stats" aria-label="Content review counts"><div><strong>{assets.length.toLocaleString()}</strong><span>indexed</span></div><div><strong>{clearedCount.toLocaleString()}</strong><span>cleared</span></div><div><strong>{pendingCount.toLocaleString()}</strong><span>pending</span></div></div>
+    <p className="attribution-note"><Icon name="info" size={15} /><span>{reviewCount.toLocaleString()} assets require license/attribution review, {noticeCount.toLocaleString()} contain notice or license material, and {unclassifiedCount.toLocaleString()} have an unclassified status. Public release remains gated until every packaged asset has a confirmed cleared status.</span></p>
     <button className="text-button" type="button" onClick={onOpenLibrary}><Icon name="database" size={15} /> Review the source library <Icon name="arrow" size={14} /></button>
   </section>;
 }
 
-function UpdateSettings({ updateState, onCheckUpdates, onUpdateAction }) {
+function UpdateSettings({ updateState, offlineMode = false, onCheckUpdates, onUpdateAction }) {
   const platform = updateState?.platform || getUpdatePlatform();
   const isDownloading = updateState?.status === 'downloading';
   const isChecking = updateState?.status === 'checking';
   const isDownloaded = updateState?.status === 'downloaded';
   const needsPermission = updateState?.status === 'permission-required';
   const version = updateState?.version || updateState?.latestVersion;
-  const statusCopy = isChecking
+  const statusCopy = offlineMode
+    ? 'Offline-only mode is on. GitHub update checks are paused.'
+    : isChecking
     ? 'Checking GitHub for the latest release…'
     : isDownloading
       ? `${updateState.percent || 0}% downloaded inside the app${version ? ` · v${version}` : ''}`
@@ -3368,8 +3896,8 @@ function UpdateSettings({ updateState, onCheckUpdates, onUpdateAction }) {
       </div>
       <p className="update-settings-description">Checks GitHub for a newer release. Android updates download into the app and open Android’s installer only when you choose Install update.</p>
       <div className="update-settings-actions">
-        <button className="secondary-button" type="button" onClick={onCheckUpdates} disabled={isChecking || isDownloading}><Icon name="sparkles" size={15} /> {isChecking ? 'Checking…' : 'Check for updates'}</button>
-        {(isDownloaded || needsPermission) && <button className="primary-button update-install-button" type="button" onClick={onUpdateAction}><Icon name={needsPermission ? 'lock' : 'check'} size={15} /> {needsPermission ? 'Allow installs' : 'Install update'}</button>}
+        <button className="secondary-button" type="button" onClick={onCheckUpdates} disabled={offlineMode || isChecking || isDownloading}><Icon name="sparkles" size={15} /> {offlineMode ? 'Updates paused' : isChecking ? 'Checking…' : 'Check for updates'}</button>
+        {!offlineMode && (isDownloaded || needsPermission) && <button className="primary-button update-install-button" type="button" onClick={onUpdateAction}><Icon name={needsPermission ? 'lock' : 'check'} size={15} /> {needsPermission ? 'Allow installs' : 'Install update'}</button>}
       </div>
       <p className={`update-settings-status status-${updateState?.status || 'idle'}`} role="status"><Icon name={isDownloaded ? 'check' : updateState?.status === 'error' ? 'info' : 'sparkles'} size={14} /> {statusCopy}</p>
     </section>
@@ -3393,6 +3921,13 @@ function formatSourceTitle(name) {
     .trim();
 }
 
+function reviewStatusLabel(status) {
+  if (status === 'cleared') return 'Cleared';
+  if (status === 'source-notice') return 'Notice';
+  if (status === 'needs-review') return 'Review';
+  return 'Unclassified';
+}
+
 function assetIcon(category) {
   if (category === 'media') return 'sparkles';
   if (category === 'bible') return 'book';
@@ -3408,11 +3943,11 @@ function sourceGuidanceForAsset(asset) {
     const path = factsInfoReadingPaths.find((candidate) => candidate.id === pathHandoff?.pathId);
     return { icon: 'learn', title: 'Educational use in the app', text: 'This supplied study is paraphrased into guided Facts & Info reading paths and review-draft articles. The raw source file stays outside the renderer bundle until its redistribution status is confirmed.', action: path ? 'facts-path' : 'learn', pathId: path?.id, actionLabel: path ? `Open guided path: ${path.title}` : 'Open Facts & Info in Learn' };
   }
-  if (group === 'strongs') return { icon: 'scroll', title: 'Word-study use in the app', text: 'Strong’s source files support the local lexicon, verse-to-number mappings, occurrences, and related passage discovery shown in the Bible reader. The raw research file is not presented as cleared public content.', action: 'bible', actionLabel: 'Open the Bible word study' };
-  if (group === 'vines') return { icon: 'book', title: 'Word-study use in the app', text: 'Vine’s source files supply New Testament word-study context alongside the Strong’s entries in the Bible reader. This catalog entry records provenance while review continues.', action: 'bible', actionLabel: 'Open the Bible word study' };
+  if (group === 'strongs') return { icon: 'scroll', title: 'Word-study use in the app', text: 'Strong’s source files support the local lexicon, verse-to-number mappings, occurrences, and related passage discovery shown in the Bible reader. The raw research file is not presented as cleared public content.', action: 'bible', focusTarget: 'word-study', actionLabel: 'Open the Bible word study' };
+  if (group === 'vines') return { icon: 'book', title: 'Word-study use in the app', text: 'Vine’s source files supply New Testament word-study context alongside the Strong’s entries in the Bible reader. This catalog entry records provenance while review continues.', action: 'bible', focusTarget: 'word-study', actionLabel: 'Open the Bible word study' };
   if (group === 'bhsa') return { icon: 'scroll', title: 'Hebrew research use', text: 'These Hebrew and morphology resources are catalogued for careful study and future linked tools. They are not treated as automatically redistributable source text.' };
   if (group === 'n1904') return { icon: 'book', title: 'Greek research use', text: 'These Greek-text resources are catalogued for careful New Testament study and future linked tools. They are not treated as automatically redistributable source text.' };
-  if (asset?.category === 'bible') return { icon: 'book', title: 'Bible conversion use', text: 'Bible source material is normalized into the offline runtime database when its conversion and review rules allow it. The reader consumes stable database rows rather than opening this raw file.' , action: 'bible', actionLabel: 'Open the Bible reader' };
+  if (asset?.category === 'bible') return { icon: 'book', title: 'Bible conversion use', text: 'Bible source material is normalized into the offline runtime database when its conversion and review rules allow it. The reader consumes stable database rows rather than opening this raw file.' , action: 'bible', focusTarget: 'read', actionLabel: 'Open the Bible reader' };
   if (asset?.category === 'media') return { icon: 'sparkles', title: 'Visual asset use', text: 'This file is catalogued as a visual source for artwork and future media review. It is not bundled or displayed as public content until its rights and purpose are confirmed.' };
   if (asset?.category === 'documentation' || asset?.category === 'tooling') return { icon: 'info', title: 'Build and review use', text: 'This file supports conversion, documentation, or source review. It remains visible in the catalog so the provenance of the app’s data pipeline is not hidden.' };
   return { icon: 'database', title: 'Catalogued research source', text: 'This file is accounted for in the local source catalog. Its metadata is available for provenance and review, while raw content remains outside the renderer unless an approved runtime use is added.' };
@@ -3442,7 +3977,17 @@ function Library({ assets, groups: sourceGroups = [], initialGroup = 'All', init
   }), [assets, category, group, normalizedQuery]);
   const selectedAsset = assets.find((asset) => asset.id === selectedId);
   const selectedAssetGuidance = selectedAsset ? sourceGuidanceForAsset(selectedAsset) : null;
-  const collectionCards = researchCollections.map((collection) => ({ ...collection, stats: groupStats.get(collection.group) }));
+  const namedGroups = new Set(researchCollections.map((collection) => collection.group));
+  const additionalCollections = sourceGroups
+    .filter((sourceGroup) => sourceGroup?.name && !namedGroups.has(sourceGroup.name))
+    .map((sourceGroup) => ({
+      id: `catalog-${String(sourceGroup.name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      group: sourceGroup.name,
+      label: sourceGroup.name === 'root' ? 'Project sources' : `${sourceGroup.name} sources`,
+      icon: 'database',
+      description: sourceGroup.name === 'root' ? 'Top-level Data files used by the conversion and review pipeline.' : 'Indexed source files available for inspection and review.',
+    }));
+  const collectionCards = [...researchCollections, ...additionalCollections].map((collection) => ({ ...collection, stats: groupStats.get(collection.group) }));
 
   return (
     <div className="library-page page-enter">
@@ -3458,8 +4003,8 @@ function Library({ assets, groups: sourceGroups = [], initialGroup = 'All', init
         <label className="library-filter"><span>Source group</span><select value={group} onChange={(event) => setGroup(event.target.value)}>{groupOptions.map((option) => <option key={option} value={option}>{option === 'All' ? 'All groups' : option}</option>)}</select><Icon name="chevron" size={14} /></label>
       </div>
       <div className="library-summary"><strong>{filteredAssets.length.toLocaleString()}</strong><span>assets shown</span><span className="library-summary-divider" /> <span>{assets.length.toLocaleString()} total indexed from Data</span></div>
-      {filteredAssets.length > 0 ? <div className="asset-list" aria-label="Indexed source assets">{filteredAssets.map((asset) => <button className={`asset-row ${selectedId === asset.id ? 'selected' : ''}`} type="button" key={asset.id} onClick={() => setSelectedId(asset.id)}><span className={`asset-icon asset-icon-${asset.category}`}><Icon name={assetIcon(asset.category)} size={18} /></span><span className="asset-copy"><strong>{asset.name}</strong><small>{asset.path}</small></span><span className="asset-type">{asset.type}</span><span className="asset-size">{formatAssetSize(asset.sizeBytes)}</span><span className={`asset-review asset-review-${asset.reviewStatus}`}>{asset.reviewStatus === 'source-notice' ? 'Notice' : 'Review'}</span><Icon name="chevron" size={15} /></button>)}</div> : <EmptyState icon="search" title="No source assets found" text="Try a different name, path, category, or source group." />}
-       {selectedAsset && <section className="asset-detail card-surface" aria-labelledby="asset-detail-heading"><div className="asset-detail-heading"><span className={`asset-icon asset-icon-${selectedAsset.category}`}><Icon name={assetIcon(selectedAsset.category)} size={20} /></span><div><p className="eyebrow">Indexed source asset</p><h2 id="asset-detail-heading">{selectedAsset.name}</h2></div><button className="icon-button" type="button" onClick={() => setSelectedId(null)} aria-label="Close asset details"><Icon name="close" size={17} /></button></div><dl className="asset-detail-grid"><div><dt>Path</dt><dd>{selectedAsset.path}</dd></div><div><dt>Group</dt><dd>{selectedAsset.groupName}</dd></div><div><dt>Type</dt><dd>{selectedAsset.type}</dd></div><div><dt>Size</dt><dd>{formatAssetSize(selectedAsset.sizeBytes)}</dd></div><div><dt>Catalog status</dt><dd>{selectedAsset.reviewStatus === 'source-notice' ? 'Source notice detected' : 'Redistribution review required'}</dd></div><div><dt>Runtime use</dt><dd>{selectedAsset.previewable ? 'Searchable and metadata-indexed' : 'Metadata-indexed; raw file stays outside the renderer bundle'}</dd></div></dl>{selectedAssetGuidance && <div className="asset-guidance"><span className="asset-guidance-icon"><Icon name={selectedAssetGuidance.icon} size={18} /></span><div><p className="eyebrow">{selectedAssetGuidance.title}</p><p>{selectedAssetGuidance.text}</p>{selectedAssetGuidance.action === 'facts-path' && selectedAssetGuidance.pathId && <button className="text-button" type="button" onClick={() => onOpenFactsPath?.(selectedAssetGuidance.pathId)}>{selectedAssetGuidance.actionLabel} <Icon name="arrow" size={14} /></button>}{selectedAssetGuidance.action === 'learn' && <button className="text-button" type="button" onClick={onOpenLearn}>Open guided study <Icon name="arrow" size={14} /></button>}{selectedAssetGuidance.action === 'bible' && <button className="text-button" type="button" onClick={onOpenBible}>{selectedAssetGuidance.actionLabel} <Icon name="arrow" size={14} /></button>}</div></div>}</section>}
+      {filteredAssets.length > 0 ? <div className="asset-list" aria-label="Indexed source assets">{filteredAssets.map((asset) => <button className={`asset-row ${selectedId === asset.id ? 'selected' : ''}`} type="button" key={asset.id} onClick={() => setSelectedId(asset.id)}><span className={`asset-icon asset-icon-${asset.category}`}><Icon name={assetIcon(asset.category)} size={18} /></span><span className="asset-copy"><strong>{asset.name}</strong><small>{asset.path}</small></span><span className="asset-type">{asset.type}</span><span className="asset-size">{formatAssetSize(asset.sizeBytes)}</span><span className={`asset-review asset-review-${asset.reviewStatus}`}>{reviewStatusLabel(asset.reviewStatus)}</span><Icon name="chevron" size={15} /></button>)}</div> : <EmptyState icon="search" title="No source assets found" text="Try a different name, path, category, or source group." />}
+       {selectedAsset && <section className="asset-detail card-surface" aria-labelledby="asset-detail-heading"><div className="asset-detail-heading"><span className={`asset-icon asset-icon-${selectedAsset.category}`}><Icon name={assetIcon(selectedAsset.category)} size={20} /></span><div><p className="eyebrow">Indexed source asset</p><h2 id="asset-detail-heading">{selectedAsset.name}</h2></div><button className="icon-button" type="button" onClick={() => setSelectedId(null)} aria-label="Close asset details"><Icon name="close" size={17} /></button></div><dl className="asset-detail-grid"><div><dt>Path</dt><dd>{selectedAsset.path}</dd></div><div><dt>Group</dt><dd>{selectedAsset.groupName}</dd></div><div><dt>Type</dt><dd>{selectedAsset.type}</dd></div><div><dt>Size</dt><dd>{formatAssetSize(selectedAsset.sizeBytes)}</dd></div><div><dt>Catalog status</dt><dd>{reviewStatusLabel(selectedAsset.reviewStatus)}</dd></div><div><dt>Runtime use</dt><dd>{selectedAsset.previewable ? 'Searchable and metadata-indexed' : 'Metadata-indexed; raw file stays outside the renderer bundle'}</dd></div></dl>{selectedAssetGuidance && <div className="asset-guidance"><span className="asset-guidance-icon"><Icon name={selectedAssetGuidance.icon} size={18} /></span><div><p className="eyebrow">{selectedAssetGuidance.title}</p><p>{selectedAssetGuidance.text}</p>{selectedAssetGuidance.action === 'facts-path' && selectedAssetGuidance.pathId && <button className="text-button" type="button" onClick={() => onOpenFactsPath?.(selectedAssetGuidance.pathId)}>{selectedAssetGuidance.actionLabel} <Icon name="arrow" size={14} /></button>}{selectedAssetGuidance.action === 'learn' && <button className="text-button" type="button" onClick={onOpenLearn}>Open guided study <Icon name="arrow" size={14} /></button>}{selectedAssetGuidance.action === 'bible' && <button className="text-button" type="button" onClick={() => onOpenBible?.(selectedAssetGuidance.focusTarget)}>{selectedAssetGuidance.actionLabel} <Icon name="arrow" size={14} /></button>}</div></div>}</section>}
     </div>
   );
 }
@@ -3544,22 +4089,50 @@ function PrivateDataSettings({ onDelete }) {
   </section>;
 }
 
-function SettingRow({ icon, title, value, description }) {
-  return <button className="setting-row" type="button"><span className="setting-row-icon"><Icon name={icon} size={18} /></span><span className="setting-row-copy"><strong>{title}</strong><small>{description || (title === 'Privacy & security' ? 'Bookmarks and progress remain on this device' : 'Available in a future build')}</small></span><span className="setting-value">{value}</span><Icon name="chevron" size={16} /></button>;
+function SettingRow({ icon, title, value, description, onClick }) {
+  const Row = onClick ? 'button' : 'div';
+  return <Row className="setting-row" type={onClick ? 'button' : undefined} onClick={onClick}><span className="setting-row-icon"><Icon name={icon} size={18} /></span><span className="setting-row-copy"><strong>{title}</strong><small>{description || (title === 'Privacy & security' ? 'Bookmarks and progress remain on this device' : 'Available in a future build')}</small></span><span className="setting-value">{value}</span>{onClick && <Icon name="chevron" size={16} />}</Row>;
 }
 
-function Toggle({ checked, onChange }) {
-  return <button className={`toggle ${checked ? 'on' : ''}`} type="button" role="switch" aria-checked={checked} onClick={onChange}><span /></button>;
+function Toggle({ label, checked, onChange }) {
+  return <button className={`toggle ${checked ? 'on' : ''}`} type="button" role="switch" aria-label={label} aria-checked={checked} onClick={onChange}><span /></button>;
 }
 
-function PrivacyLockScreen({ discreetMode = false, onUnlock, biometricEnabled = false, biometricAvailable = false, onBiometricUnlock }) {
+function PrivacyLockScreen({ discreetMode = false, lockout = {}, onUnlock, onFailedAttempt, biometricEnabled = false, biometricAvailable = false, onBiometricUnlock }) {
   const [pin, setPin] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [biometricBusy, setBiometricBusy] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const lockoutUntil = Number(lockout?.lockedUntil) || 0;
+  const isLockedOut = lockoutUntil > now;
+  const lockoutSeconds = Math.max(0, Math.ceil((lockoutUntil - now) / 1000));
+
+  useEffect(() => {
+    if (lockoutUntil <= Date.now()) {
+      setNow(Date.now());
+      return undefined;
+    }
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= lockoutUntil) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockoutUntil]);
+
+  function lockoutMessage() {
+    if (!isLockedOut) return '';
+    const unit = lockoutSeconds === 1 ? 'second' : 'seconds';
+    return `Too many incorrect attempts. Try again in ${lockoutSeconds} ${unit}.`;
+  }
 
   async function submit(event) {
     event.preventDefault();
+    if (isLockedOut) {
+      setMessage(lockoutMessage());
+      return;
+    }
     if (!pin) {
       setMessage('Enter your PIN to continue.');
       return;
@@ -3572,6 +4145,7 @@ function PrivacyLockScreen({ discreetMode = false, onUnlock, biometricEnabled = 
       setMessage('');
     } else {
       setPin('');
+      onFailedAttempt?.();
       setMessage('That PIN did not unlock this app.');
     }
   }
@@ -3584,11 +4158,35 @@ function PrivacyLockScreen({ discreetMode = false, onUnlock, biometricEnabled = 
     if (!unlocked) setMessage('Biometric verification was not completed. Use your app PIN instead.');
   }
 
-  return <main className={`privacy-lock-screen ${discreetMode ? 'privacy-lock-screen-neutral' : ''}`} aria-labelledby="privacy-lock-screen-title"><section className="privacy-lock-card">{discreetMode ? <div className="lock-screen-neutral-mark"><span><Icon name="lock" size={20} /></span><strong>Private space</strong></div> : <div className="lock-screen-mark"><div className="brand-symbol"><Icon name="cross" size={25} strokeWidth={1.7} /></div><div className="brand-copy"><span>From Islam</span><strong>to Christ</strong></div></div>}<div className="lock-screen-icon"><Icon name="lock" size={27} /></div><p className="eyebrow">{discreetMode ? 'Private space' : 'Private on this device'}</p><h1 id="privacy-lock-screen-title">Enter your PIN.</h1><p className="lock-screen-description">{discreetMode ? 'This private space is locked. Your local PIN protects casual access to what is stored here; it does not replace your device security.' : 'This app is locked after inactivity. Your local PIN reduces casual access to saved study state; it does not replace your device security.'}</p><form className="lock-screen-form" onSubmit={submit}><label htmlFor="privacy-pin-entry">Local PIN</label><input id="privacy-pin-entry" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,8}" maxLength="8" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} autoFocus /><button className="primary-button" type="submit" disabled={busy || biometricBusy}>{busy ? 'Checking…' : 'Unlock'} <Icon name="arrow" size={16} /></button>{biometricEnabled && biometricAvailable && <button className="secondary-button lock-screen-biometric" type="button" onClick={unlockWithBiometric} disabled={busy || biometricBusy}><Icon name="shield" size={16} /> {biometricBusy ? 'Waiting for device…' : 'Unlock with biometrics'}</button>}{message && <p className="privacy-form-message" role="alert">{message}</p>}</form><p className="lock-screen-limit"><strong>Privacy limit:</strong> someone with access to this device or its storage may still be able to access application data.</p></section></main>;
+  return <main className={`privacy-lock-screen ${discreetMode ? 'privacy-lock-screen-neutral' : ''}`} aria-labelledby="privacy-lock-screen-title"><section className="privacy-lock-card">{discreetMode ? <div className="lock-screen-neutral-mark"><span><Icon name="lock" size={20} /></span><strong>Private space</strong></div> : <div className="lock-screen-mark"><div className="brand-symbol"><Icon name="cross" size={25} strokeWidth={1.7} /></div><div className="brand-copy"><span>From Islam</span><strong>to Christ</strong></div></div>}<div className="lock-screen-icon"><Icon name="lock" size={27} /></div><p className="eyebrow">{discreetMode ? 'Private space' : 'Private on this device'}</p><h1 id="privacy-lock-screen-title">Enter your PIN.</h1><p className="lock-screen-description">{discreetMode ? 'This private space is locked. Your local PIN protects casual access to what is stored here; it does not replace your device security.' : 'This app is locked after inactivity. Your local PIN reduces casual access to saved study state; it does not replace your device security.'}</p><form className="lock-screen-form" onSubmit={submit}><label htmlFor="privacy-pin-entry">Local PIN</label><input id="privacy-pin-entry" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,8}" maxLength="8" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} autoFocus disabled={isLockedOut} /><button className="primary-button" type="submit" disabled={busy || biometricBusy || isLockedOut}>{busy ? 'Checking…' : isLockedOut ? 'Temporarily locked' : 'Unlock'} <Icon name="arrow" size={16} /></button>{biometricEnabled && biometricAvailable && <button className="secondary-button lock-screen-biometric" type="button" onClick={unlockWithBiometric} disabled={busy || biometricBusy}><Icon name="shield" size={16} /> {biometricBusy ? 'Waiting for device…' : 'Unlock with biometrics'}</button>}{(message || isLockedOut) && <p className="privacy-form-message" role="alert">{isLockedOut ? lockoutMessage() : message}</p>}</form><p className="lock-screen-limit"><strong>Privacy limit:</strong> someone with access to this device or its storage may still be able to access application data.</p></section></main>;
 }
 
 function PrivacyNotice({ onClose }) {
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-title"><button className="modal-close" type="button" onClick={onClose} aria-label="Close privacy notice"><Icon name="close" size={18} /></button><div className="modal-icon"><Icon name="shield" size={24} /></div><p className="eyebrow">A clear promise</p><h2 id="privacy-title">What Discreet Mode can do</h2><p>It keeps this prototype local, quiet, and free from accounts or analytics. It can reduce casual discovery on the device.</p><p>On Android, the enabled mode asks the operating system to protect this app window from screenshots and recent-task previews. Device manufacturers and OS versions may handle that request differently.</p><p>A local PIN can hide the app after launch and inactivity, but it is an access gate rather than encryption.</p><p>It cannot erase every system record or protect you from someone who has your device access, device PIN, backups, screenshots, or a compromised device.</p><button className="primary-button" type="button" onClick={onClose}>I understand <Icon name="check" size={16} /></button></section></div>;
+  const dialogRef = useRef(null);
+  useDialogFocus(dialogRef, onClose);
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} className="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-title" tabIndex="-1">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Close privacy notice"><Icon name="close" size={18} /></button>
+        <div className="modal-icon"><Icon name="shield" size={24} /></div>
+        <p className="eyebrow">A clear promise</p>
+        <h2 id="privacy-title">What Discreet Mode can do</h2>
+        <p>It keeps this prototype local, quiet, and free from accounts or analytics. It can reduce casual discovery on the device, but it is not a guarantee of secrecy.</p>
+        <ul className="privacy-boundary-list">
+          <li><strong>Identity:</strong> the launcher label and icon still identify the app as From Islam to Christ. The neutral startup screen only reduces casual discovery after launch.</li>
+          <li><strong>Notifications:</strong> this build creates no notifications and requests no notification permission, so it does not place reading activity in notification history.</li>
+          <li><strong>Screen and task previews:</strong> on Android, enabled Discreet Mode asks the operating system to protect this window from screenshots, screen recording, and recent-task previews. Device manufacturers and OS versions may handle that request differently.</li>
+          <li><strong>Clipboard and sharing:</strong> copying a verse or using the system share surface can expose text to the clipboard or another app. Share only when it is safe; the app does not share reading or journey activity automatically.</li>
+          <li><strong>Storage and backup:</strong> saved study state stays in local app storage and is excluded from Android cloud backup and device-to-device transfer. It is not encrypted at rest in this prototype, and someone with device or storage access may still inspect it.</li>
+          <li><strong>Offline-only mode:</strong> when enabled, the app pauses GitHub update checks and uncached online translation requests. Bundled Bible text, local study content, and translations already cached on this device remain available; turning the setting off is required to discover new releases or request missing public translations.</li>
+          <li><strong>PIN and biometrics:</strong> the local PIN is an access gate, not encryption. Five incorrect PIN attempts begin a temporary escalating throttle capped at five minutes. Android biometric unlock remains an optional convenience and the PIN remains the fallback.</li>
+          <li><strong>Logs and deletion:</strong> this prototype has no remote analytics or crash-reporting service. The operating system may retain its own records, and Delete private data removes the app's saved study state but cannot erase every system record, screenshot, clipboard entry, or backup already made.</li>
+        </ul>
+        <button className="primary-button" type="button" onClick={onClose}>I understand <Icon name="check" size={16} /></button>
+      </section>
+    </div>
+  );
 }
 
 export default App;

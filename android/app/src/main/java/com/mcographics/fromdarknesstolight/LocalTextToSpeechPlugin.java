@@ -1,5 +1,6 @@
 package com.mcographics.fromdarknesstolight;
 
+import android.content.Intent;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 
@@ -32,6 +33,36 @@ public class LocalTextToSpeechPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setLanguage(final PluginCall call) {
+        final String language = call.getString("language", "");
+        runOnMain(() -> ensureInitialized(call, () -> {
+            if (textToSpeech == null || !ready) {
+                call.reject("The device speech engine is unavailable.");
+                return;
+            }
+            applyLanguage(language);
+            JSObject result = new JSObject();
+            result.put("applied", true);
+            result.put("language", language == null ? "" : language);
+            call.resolve(result);
+        }));
+    }
+
+    @PluginMethod
+    public void openTtsSettings(final PluginCall call) {
+        runOnMain(() -> {
+            try {
+                getActivity().startActivity(new Intent("com.android.settings.TTS_SETTINGS"));
+                JSObject result = new JSObject();
+                result.put("opened", true);
+                call.resolve(result);
+            } catch (Exception error) {
+                call.reject("Android voice settings are unavailable.", error);
+            }
+        });
+    }
+
+    @PluginMethod
     public void speak(final PluginCall call) {
         final String text = call.getString("text", "");
         final String utteranceId = call.getString("utteranceId", "from-islam-to-christ-local-reading");
@@ -48,9 +79,7 @@ public class LocalTextToSpeechPlugin extends Plugin {
                 return;
             }
             currentUtteranceId = utteranceId;
-            if (language != null && !language.trim().isEmpty()) {
-                textToSpeech.setLanguage(Locale.forLanguageTag(language.replace('_', '-')));
-            }
+            applyLanguage(language);
             if (rate != null && rate > 0) {
                 textToSpeech.setSpeechRate(rate.floatValue());
             }
@@ -131,6 +160,24 @@ public class LocalTextToSpeechPlugin extends Plugin {
                 pendingAction.run();
             }
         });
+    }
+
+    private void applyLanguage(final String language) {
+        if (textToSpeech == null) {
+            return;
+        }
+        final int resultCode = textToSpeech.setLanguage(localeForLanguage(language));
+        if (resultCode == TextToSpeech.LANG_NOT_SUPPORTED || resultCode == TextToSpeech.LANG_MISSING_DATA) {
+            textToSpeech.setLanguage(Locale.getDefault());
+        }
+    }
+
+    private Locale localeForLanguage(final String language) {
+        if (language == null || language.trim().isEmpty()) {
+            return Locale.getDefault();
+        }
+        final Locale locale = Locale.forLanguageTag(language.replace('_', '-'));
+        return locale.getLanguage().isEmpty() ? Locale.getDefault() : locale;
     }
 
     private void notifySpeechState(final String state, final String utteranceId) {

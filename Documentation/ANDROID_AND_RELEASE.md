@@ -9,7 +9,7 @@ This document records the implementation and release decision for the From Islam
 - Android application ID: `com.mcographics.fromdarknesstolight`.
 - Android minimum SDK: 24.
 - Android compile/target SDK: 36.
-- Android build format: debug APK for the current prototype and test release workflow.
+- Android build format: debug APK for local development only; tagged releases must publish a production-signed release APK.
 - App identity: `logo/icon.png` is used for the Windows and Android application icon; `logo/logo.png` is used by the Electron startup window and Android native splash.
 
 Using the shared renderer preserves the same Home, Bible, Learn, article detail, Journey, Saved, Settings, privacy, theme, local-progress, Bible highlight, private-note, copy, font-size, and reading-tone features on both platforms. The Android shell adds native packaging and the phone navigation drawer without introducing an account or backend requirement. The research catalog is an internal SQLite content layer rather than a user-facing file browser.
@@ -42,11 +42,19 @@ The v0.2.26 Bible audio slice applies that native fallback to the Bible chapter 
 
 The v0.2.27 privacy slice adds the first-launch decision and safety sequence to the shared renderer: a cinematic “YOU MADE THE RIGHT DECISION” screen, an immediate Privacy Protection choice, and a neutral Private space entry on later Discreet Mode launches. It appears automatically only while onboarding is incomplete; the Settings welcome-guide reset intentionally replays it. The same slice adds an Android-only Quick close app action in Settings. It calls a native `QuickClose` bridge to finish the activity and remove its task from Android recent apps where the platform supports `finishAndRemoveTask()`, with a normal activity finish fallback on older Android versions. It does not delete local app data, erase screenshots or backups, or guarantee removal of operating-system records. Desktop/browser surfaces show an explicit Android-only availability message.
 
+The v0.2.28 source continuation packages the completed privacy, multilingual, content-review, updater-safety, and legal/about work under Android version code 30. It is a local build boundary until the strict rights gate is cleared and one stable app-specific production signing key is configured for the GitHub release workflow.
+
+The authorized v0.2.28 local build completed for both platforms on 2026-09-14. Windows produced `release/From-Islam-to-Christ-0.2.28-x64.exe`; Android produced a release-variant `release/From-Islam-to-Christ-0.2.28-release-unsigned.apk`. The Android artifact reports package `com.mcographics.fromdarknesstolight`, version code 30, and version name 0.2.28, but `apksigner` correctly reports that it does not verify because no app-specific signing configuration is present. The Windows installer also reports `NotSigned` under Authenticode inspection. These are local packaging results, not public signed release evidence.
+
+The current unreleased privacy-hardening continuation adds a bounded PIN failure throttle. After five incorrect PIN attempts, the lock screen applies a short escalating delay, capped at five minutes; a successful PIN or biometric unlock clears the counter. The throttle is local app state, is removed by Delete private data, and is not presented as encryption or device-level protection. Android backup and device-transfer rules also exclude the app's private local state, so saved notes, reflections, and progress are not restored automatically to another device.
+
+The same continuation adds an optional Offline-only mode in Settings. When enabled, the shared app pauses GitHub update checks and uncached automatic translation requests; bundled Bible text, local content, and cached translations remain available. The setting is stored locally, is cleared by Delete private data, and is disclosed as a network boundary rather than a guarantee of complete device privacy. Users must turn it off before checking for a new release or requesting a translation that is not already bundled or cached.
+
 ## Update behavior
 
 The Windows application uses `electron-updater` and the GitHub Releases provider. Packaged builds check the latest release on startup, download an available Windows installer update, and offer restart-to-install. Development runs intentionally report that update checks require a packaged build.
 
-The Android renderer checks the public GitHub Releases API. When a newer APK is available, the registered native `AndroidUpdater` plugin streams the GitHub release asset into the app's private `files/updates` directory, reports download progress, and verifies the GitHub-provided SHA-256 digest when available. The user-facing `Install update` action hands that private file to Android's package installer through the app's `FileProvider`; the phone browser is not used. Android requires the user to approve installation, and Android 8+ may require the user to allow this app to install packages. A production Android release still requires a stable signing key and a documented distribution choice such as Google Play, managed private distribution, or a signed GitHub release.
+The Android renderer checks the public GitHub Releases API. When a newer production APK is available, the registered native `AndroidUpdater` plugin rejects debug/unsigned asset names, streams the GitHub release asset into the app's private `files/updates` directory, reports download progress, and verifies the GitHub-provided SHA-256 digest when available. The user-facing `Install update` action hands that private file to Android's package installer through the app's `FileProvider`; the phone browser is not used. Android requires the user to approve installation, and Android 8+ may require the user to allow this app to install packages. A production Android release still requires a stable signing key and a documented distribution choice such as Google Play, managed private distribution, or a signed GitHub release.
 
 ## Data and licensing boundary
 
@@ -57,9 +65,9 @@ Before a public content release, complete the license manifest and attribution r
 ## Release procedure
 
 1. Review content, safety, attribution, and licensing gates.
-2. Confirm the Android signing/distribution decision before replacing the debug APK with a production-signed artifact.
+2. Confirm the Android signing/distribution decision before producing a production-signed release APK. A debug APK is for local development only and is never a public release artifact.
 3. Update the version in `package.json` and the Android `versionName`/`versionCode`.
 4. Run `npm run verify:database`, `npm run build`, `npm run dist:win`, and `npm run android:debug` locally.
-5. Create and push a tag such as `v0.2.27`.
-6. GitHub Actions builds the Windows installer and Android test APK. For a tag, it creates the GitHub release consumed by both update paths.
+5. Create and push a tag such as `v0.2.28` only after the strict rights gate and production signing checks pass.
+6. GitHub Actions builds the Windows installer and a production-signed Android release APK. For a tag, it creates the GitHub release consumed by both update paths.
 7. Verify the release assets and checksums publicly before calling the release available.
