@@ -1008,8 +1008,17 @@ This queue is intentionally updated as the product advances:
 ### Validation and publication boundary
 
 - Passed `npm run verify:bible`, `npm run verify:privacy`, `npm run verify:accessibility`, `npm run verify:links`, `npm run verify:database`, and `git diff --check` after the source update.
-- The local builds are ready for inspection, but no v0.2.29 GitHub binary release was created because the Android production signing and 1,566-asset licensing/attribution gates remain open.
+- The local builds are ready for inspection. The Windows installer, blockmap, `latest.yml`, and unsigned Android APK were uploaded to a maintainer-only GitHub draft release named `From Islam to Christ v0.2.29 — engineering build`; the draft is not a public end-user release.
+- No public v0.2.29 GitHub binary release was published because the Android production signing and 1,566-asset licensing/attribution gates remain open.
 - The public release channel therefore remains v0.2.28 until the production Android signing identity and rights review are completed.
+
+### GitHub draft upload
+
+- Draft release tag: `v0.2.29`.
+- Uploaded Windows installer: `From-Islam-to-Christ-0.2.29-x64.exe`, 154,491,179 bytes.
+- Uploaded Windows updater metadata: `From-Islam-to-Christ-0.2.29-x64.exe.blockmap` and `latest.yml`.
+- Uploaded Android engineering artifact: `app-release-unsigned.apk`, 42,233,213 bytes.
+- The draft must not be promoted to public until a stable production Android signing identity is configured and the rights/attribution audit is complete.
 
 ## Future entry template
 
