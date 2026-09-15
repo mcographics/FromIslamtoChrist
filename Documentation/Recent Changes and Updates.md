@@ -16,7 +16,7 @@ This record is separate from:
 - Distinguish clearly between source implementation, static validation, renderer build, Android/Windows packaging, device installation, runtime click-through, GitHub publication, and public release evidence.
 - Do not describe a feature as device-tested unless the relevant device and interaction were actually tested.
 - Do not describe a release artifact as signed unless its signature and signing identity were verified.
-- Keep the current no-build instruction visible in the latest entry until the user authorizes a new build.
+- Keep the current build instruction visible in the latest entry, including whether the user has authorized a new build.
 - Preserve unrelated worktree changes when adding future entries.
 - Keep content licensing and editorial review status visible. A file being present in `Data` does not mean it is cleared for redistribution.
 
@@ -28,15 +28,15 @@ This record is separate from:
 | Repository | `mcographics/FromIslamtoChrist` |
 | Branch | `main` |
 | HEAD at the start of this log | `52b0ca1` / tag `v0.2.27` |
-| Package version | `0.2.28` |
+| Package version | `0.2.29` |
 | Android application ID | `com.mcographics.fromdarknesstolight` |
-| Android version code | `30` |
+| Android version code | `31` |
 | Windows shell | Electron 44 + React 19 + Vite 6 |
 | Android shell | Capacitor 8 wrapping the shared renderer |
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
-| Current build instruction | The 2026-09-14 user request authorized the v0.2.28 build, device installation, and manual cross-platform GitHub release; no further build is implied |
-| Current source status | v0.2.28 Windows and Android assets are packaged and published at GitHub; the Android asset is direct-device debug-key signed and the Windows installer is not Authenticode-signed |
+| Current build instruction | The 2026-09-15 user request authorized a v0.2.29 Windows/Android build, GitHub publication, website update, and phone replacement; publication remains gated by production signing and rights review |
+| Current source status | v0.2.29 source and release-mode artifacts are built locally; the connected phone has the local debug-key v0.2.29 install, while no official production-signed public release has been published |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -875,6 +875,100 @@ This queue is intentionally updated as the product advances:
 - This is runtime evidence for the already-installed v0.2.28 APK, not for the newer source-only Discreet Mode task-identity continuation. No build or reinstall was performed.
 - The test covered the book/chapter navigation path only; it did not claim full feature-by-feature device QA, screenshot protection QA, recent-task QA, translation QA, or audio playback QA.
 - The current no-build instruction remains active. The next privacy-specific device test requires an authorized APK build containing the source changes.
+
+## 2026-09-15 — v0.2.28 connected-phone full feature smoke audit
+
+### Changed
+
+- Reset the installed Android app data on the connected Samsung `SM-G781W` (`RFCRC15568L`) and walked the first-launch Decision Screen, Privacy Protection prompt, three-step welcome guide, and Home entry flow.
+- Exercised the main Android navigation surfaces: Home, Bible, Learn, Prayer, Journey, Faith, Saved, Settings, global search, About, Terms & Conditions, Rights & Usage, Credits, and the Source Library.
+- Confirmed the Bible reader can change books and chapters, open in-app Scripture links from plans, Journey, articles, and Facts & Info material, and update the active reader location instead of remaining on John 1.
+- Confirmed local audio playback exposes the current verse, advances the current-verse label while speaking, uses the Android system/default voice, and does not announce each verse number as an extra spoken phrase.
+- Confirmed Questions Muslims Ask contains 41 categorized questions with a selectable quick-answer detail view, Facts & Info exposes eight guided study paths with source-linked Scripture trails, and an indexed source asset can open its metadata and jump to its guided path.
+- Confirmed Prayer private journaling, Faith day-path content, Saved bookmarks/highlights/notes, and global search result navigation respond on-device.
+- Confirmed Settings can open Android Text-to-Speech settings, switch app language, switch Light/Dark appearance, expose privacy controls, and display the rights/attribution review gate.
+
+### Validation
+
+- `adb shell pm clear --user 0 com.mcographics.fromdarknesstolight` completed with `Success` before the audit; the package was relaunched from a clean state.
+- The installed package was verified as `com.mcographics.fromdarknesstolight`, version name `0.2.28`, version code `30`.
+- In-app `Check for updates` completed against the configured GitHub release endpoint and reported: `You are running the latest Android release.` No update was downloaded or installed.
+- Source Library runtime evidence showed `1,566` indexed assets, including Strong's, Vine's, Facts & Info, BHS/Hebrew, NA/Greek, and project-source groups. A Facts & Info source opened with its path, group, type, size, catalog status, runtime-use boundary, educational-use note, and guided-path action.
+- With Discreet Mode enabled during the earlier reset pass, Android screenshot capture produced an empty capture and a restart opened the neutral `PRIVATE SPACE` startup surface. The installed phone build is still v0.2.28; newer source-only task-identity handoff changes are not claimed as installed.
+- The updater check, reader link routing, audio progression, Q&A, Facts & Info, source review, settings, and Android TTS checks were performed without making a new build, installing a package, pushing GitHub, or changing a release.
+
+### Findings and follow-up
+
+- The Settings content is visible while the top app header still says `Home`; the header should reflect the active Settings/Library surface.
+- The seven-item bottom navigation is too wide for this phone: the Saved icon and label are clipped at the right edge in the inspected light and dark layouts. This is an accessibility and discoverability issue.
+- Spanish switching translated much of the Settings surface, but the phone was offline and reported queued/retry work (`71` items remaining after the test); several technical or image-description strings remained in English. Full automatic translation still needs a source-level localization pass and online/cache validation.
+- The About/Rights panel exposed a visible close action, but Android Back did not close it during the audit; this should be made consistent with normal Android navigation.
+- The Q&A detail is functional but appears far below the long 41-question list on a small screen, so the selected answer requires extensive scrolling to reach. Consider bringing the answer into a nearer detail state or adding a clearer jump affordance.
+- The Source Library correctly blocks public-release assumptions: the installed UI reported `1,553` assets pending license/attribution review and `13` with notice or license material. This remains a release gate.
+- Temporary audit state was cleared from the phone after testing so the device is left at a fresh first-launch state. No new build was made, and the current no-build instruction remains active.
+
+## 2026-09-15 — Unreleased source refinement: complete John 14:6 Decision Screen verse
+
+### Changed
+
+- Extended the first-launch Decision Screen quotation from the opening clause of John 14:6 to the complete user-requested wording: “I am the way, the truth, and the life. No one comes to the Father except through me.”
+- Kept the existing `John 14:6` reference, solemn onboarding layout, reassurance copy, “Your journey begins here.” closing, and `ENTER THE LIGHT` action unchanged.
+
+### Validation
+
+- Confirmed the exact new quotation is present in `src/App.jsx` under the Decision Screen's `decision-verse` block.
+- `git diff --check` passed.
+- No renderer build, Android/Windows package, device installation, GitHub push, or release was run. The current no-build instruction remains active.
+
+### Boundaries and follow-up
+
+- The phone remains reset at the already-installed v0.2.28 first-launch screen, so this source refinement will appear on the device only after a future authorized build and installation.
+
+## 2026-09-15 — v0.2.29 Android build and connected-phone installation
+
+### Changed
+
+- Advanced the local package version to `0.2.29` and Android version code to `31` for the authorized phone update.
+- Packaged the complete John 14:6 Decision Screen verse into the Android release assets.
+- Corrected `MainActivity.onResume()` visibility from `protected` to `public` for compatibility with the current Capacitor 8 `BridgeActivity` API after the first build exposed the compiler error.
+- Regenerated the versioned local content index/database metadata for `0.2.29`; the indexed catalog remains 1,566 Data assets, 66 Bible books, 31,102 verses, Strong's/Vine's data, and original-language alignments.
+
+### Validation
+
+- `npm run android:release` completed successfully under the scoped Temurin 21 JDK after the Android shell visibility correction. Vite transformed 54 modules and Gradle completed `assembleRelease`.
+- Release-variant artifact: [`release/From-Islam-to-Christ-0.2.29-release-unsigned.apk`](../release/From-Islam-to-Christ-0.2.29-release-unsigned.apk), 42,232,229 bytes.
+- Device-install artifact: [`release/From-Islam-to-Christ-0.2.29.apk`](../release/From-Islam-to-Christ-0.2.29.apk), 42,281,484 bytes, SHA-256 `E301B0456248498063615E04C0B05A1A0BEDE51D35FC7AF22A9851157B4830A`.
+- `apksigner verify --verbose --print-certs` passed with APK v2 and v3. The certificate SHA-256 is `dc272c4c52d0e4fbfab20f110ce52a7ffea0fca517fa735a898100d32d90df3b`, matching the certificate previously verified on the phone.
+- `adb install -r --no-incremental` returned `Success`; the app remained installed in place without an uninstall or data reset. Android reports package `com.mcographics.fromdarknesstolight`, version name `0.2.29`, version code `31`, and APK signing version 3.
+- After launch, the phone accessibility tree exposed the complete Decision Screen quotation: `“I am the way, the truth, and the life. No one comes to the Father except through me.”`
+- Passed `npm run verify:bible`, `npm run verify:audio`, `npm run verify:links`, `npm run verify:word-study`, `npm run verify:privacy`, `npm run verify:updates`, `npm run verify:legal`, `npm run verify:licenses`, `npm run verify:art`, `npm run verify:database`, and `git diff --check`.
+
+### Boundaries and follow-up
+
+- This is a local Android device update only. No Windows build, GitHub push, tag, public release, or website update was performed.
+- The APK is release-variant but signed with the local debug certificate so it can update this development phone in place; it is not Google Play production-signed.
+- The public GitHub v0.2.28 release and README links remain unchanged until a separate authorized cross-platform publication request.
+
+## 2026-09-15 — v0.2.29 cross-platform release attempt and publication gates
+
+### Build results
+
+- Ran the newly authorized `npm run dist:win` build at package version `0.2.29`. The production renderer/data build and Electron NSIS packaging completed successfully.
+- Windows artifact: [`release/From-Islam-to-Christ-0.2.29-x64.exe`](../release/From-Islam-to-Christ-0.2.29-x64.exe), 154,485,038 bytes, SHA-256 `28125A04D88A398FF6DF7A9E9C69DB2C479CF83C2A3D53A2ABBD4773529D88C0`.
+- Windows blockmap: [`release/From-Islam-to-Christ-0.2.29-x64.exe.blockmap`](../release/From-Islam-to-Christ-0.2.29-x64.exe.blockmap), 162,327 bytes, SHA-256 `D869AB66647AC016F3461AA6313AAB4ECAE756D2A2798EE2D92CE9EA0F0DF8EC`.
+- `release/latest.yml` was regenerated for `0.2.29`. Electron Builder reported the installer as `NotSigned` under Authenticode because no Windows signing certificate is configured; this is a release-mode installer, not a debug build, but it is not Authenticode-signed.
+- The Android `assembleRelease` result and the locally debug-key-signed device copy are recorded in the preceding v0.2.29 entry. The release-mode APK itself remains unsigned until a production keystore is supplied.
+
+### Publication and device boundaries
+
+- The repository contains no production Android keystore, and `gh secret list --repo mcographics/FromIslamtoChrist` returned no Android signing secrets. The tag-driven release workflow therefore cannot create the requested official Android APK.
+- `npm run verify:licenses -- --release` stopped at the strict release gate: all `1,566` Data assets still require license or attribution review. Audit mode passing does not mean the assets are cleared for redistribution.
+- The prior v0.2.28 GitHub Actions run also exposed a workflow environment issue: the noninteractive Android SDK license step failed on the unaccepted `android-googlexr-license`. This must be corrected before relying on the hosted release workflow.
+- No v0.2.29 GitHub tag/release or website update was made, and the public v0.2.28 release remains unchanged. No uninstall was performed on the phone because there is not yet an official production-signed APK to install; the connected device remains on the working local v0.2.29 release-variant install with its existing app data preserved.
+
+### Required next action
+
+- Configure the existing production Android signing identity in GitHub Actions using the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`, and complete the 1,566-asset rights/attribution review. Do not generate a replacement signing identity casually: changing the certificate can prevent future updates over the existing Android package.
 
 ## Future entry template
 

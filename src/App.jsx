@@ -1567,7 +1567,7 @@ function DecisionScreen({ onEnterLight }) {
         <h1 id="decision-title">YOU MADE THE RIGHT DECISION</h1>
         <p id="decision-message" className="decision-message">Choosing to seek Jesus Christ is the most important decision of your life. You have opened the door to truth, hope, forgiveness, and the love of God.</p>
         <p id="decision-reassurance" className="decision-reassurance">You may still have questions. You may feel afraid, uncertain, or alone. You do not have to understand everything tonight. Take one honest step at a time—and let Jesus meet you there.</p>
-        <blockquote id="decision-verse"><strong>John 14:6</strong><span>“I am the way, the truth, and the life.”</span></blockquote>
+        <blockquote id="decision-verse"><strong>John 14:6</strong><span>“I am the way, the truth, and the life. No one comes to the Father except through me.”</span></blockquote>
         <div className="decision-closing"><p>Your journey begins here.</p><button className="decision-enter-button" type="button" onClick={onEnterLight}>ENTER THE LIGHT <Icon name="arrow" size={17} /></button></div>
       </section>
     </main>
