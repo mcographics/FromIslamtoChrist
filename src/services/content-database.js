@@ -77,6 +77,16 @@ function sqlList(values) {
   return values.map((value) => `'${String(value).replace(/'/g, "''")}'`).join(', ');
 }
 
+function canonicalStrongNumber(value) {
+  const match = String(value || '').trim().toUpperCase().match(/^([GH])(\d+)$/);
+  if (!match) return String(value || '').trim().toUpperCase();
+  return `${match[1]}${Number(match[2])}`;
+}
+
+function strongNumberAliases(values) {
+  return [...new Set(values.flatMap((value) => [String(value).toUpperCase(), canonicalStrongNumber(value)]))];
+}
+
 function mapLexiconEntry(entry) {
   return {
     strongNumber: entry.strongNumber,
@@ -308,7 +318,7 @@ export async function loadLexiconEntries(strongNumbers) {
   await loadContentDatabase();
   try {
     const database = await getDatabase();
-    const values = sqlList(normalized);
+    const values = sqlList(strongNumberAliases(normalized));
     const strongs = rowsFromResult(database.exec(`
         SELECT strong_number AS strongNumber,
         language,
@@ -384,7 +394,7 @@ export async function loadLexiconEntries(strongNumbers) {
       FROM original_language_alignments
       WHERE strong_number IN (${values})
       ORDER BY strong_number, corpus
-    `));
+    `)).map((entry) => ({ ...entry, strongNumber: canonicalStrongNumber(entry.strongNumber) }));
     const originalLanguageByNumber = new Map();
     originalLanguage.forEach((entry) => {
       const list = originalLanguageByNumber.get(entry.strongNumber) || [];
@@ -439,7 +449,21 @@ export async function searchLexiconEntries(query, limit = 12) {
   const vineStrongNumbers = rowsFromStatement(vinesStatement).map((entry) => entry.strongNumber).filter(Boolean);
   vinesStatement.free();
 
-  return loadLexiconEntries([...new Set([...strongNumbers, ...vineStrongNumbers])].slice(0, resultLimit));
+  const originalLanguageStatement = database.prepare(`
+    SELECT strong_number AS strongNumber
+    FROM original_language_alignments
+    WHERE lower(strong_number) LIKE lower($query)
+      OR lower(COALESCE(lemma, '')) LIKE lower($query)
+      OR lower(COALESCE(transliteration, '')) LIKE lower($query)
+      OR lower(COALESCE(gloss, '')) LIKE lower($query)
+    ORDER BY CASE WHEN upper(strong_number) = $exact THEN 0 ELSE 1 END, strong_number
+    LIMIT $limit
+  `);
+  originalLanguageStatement.bind({ $query: likeQuery, $exact: exactQuery, $limit: resultLimit });
+  const originalLanguageStrongNumbers = rowsFromStatement(originalLanguageStatement).map((entry) => entry.strongNumber).filter(Boolean);
+  originalLanguageStatement.free();
+
+  return loadLexiconEntries([...new Set([...strongNumbers, ...vineStrongNumbers, ...originalLanguageStrongNumbers].map(canonicalStrongNumber))].slice(0, resultLimit));
 }
 
 export async function loadChapterCrossReferences(bookId, chapter, limit = 8) {

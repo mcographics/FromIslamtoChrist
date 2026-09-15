@@ -735,6 +735,27 @@ This queue is intentionally updated as the product advances:
 - The scroll/focus behavior is source-implemented but still needs live visual verification in a packaged renderer and on the connected Android device.
 - Plan #2 remains premature because Plan #1 still has licensing, privacy-hardening, packaging, and device-verification gates open.
 
+## 2026-09-14 — Unreleased source continuation: original-language search and source handoffs
+
+### Changed
+
+- Corrected the Learn word-study explorer so searches can find BHSA Hebrew and N1904 Greek alignment rows by Strong’s number, lemma, transliteration, or gloss, in addition to Strong’s and Vine’s content.
+- Added canonical/padded Strong-number alias handling. For example, an alignment recorded as `G0976` can now resolve to the lexicon entry recorded as `G976` instead of silently disappearing from the study trail.
+- Updated the BHS / Hebrew and NA / Greek Source Library guidance so each collection explains its runtime use and offers a direct handoff into the Bible word-study surface.
+- Routed Global Search research results directly into Learn’s word-study explorer with the matching search term prefilled, so a result for a Strong’s, Vine’s, BHSA, or N1904 entry opens a usable study surface immediately.
+- Added `npm run verify:word-study` to protect the original-language query, alias linkage, and source-guidance routes against regression.
+
+### Validation
+
+- `npm run verify:word-study` passed against the packaged local database.
+- The existing database, source-coverage, content-link, privacy, update-safety, legal, artwork, audio, accessibility, Bible-navigation, and review checks remain the validation set for this source continuation.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run.
+
+### Boundaries and follow-up
+
+- BHSA/N1904 alignment rows remain review-labeled educational metadata. The raw source files are not presented as cleared public content, and licensing/editorial review remains open for the indexed Data catalog.
+- The browser runtime was unavailable for this pass, so there is no new visual click-through evidence; source and database verification are reported separately from UI/device verification.
+
 ## 2026-09-14 — Unreleased source continuation: Android backup privacy boundary
 
 ### Changed

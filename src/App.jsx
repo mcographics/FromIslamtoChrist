@@ -73,8 +73,8 @@ const researchCollections = [
   { id: 'strongs', group: 'strongs', label: "Strong's", icon: 'scroll', description: 'Greek and Hebrew dictionaries, mappings, and word-study data.' },
   { id: 'vines', group: 'vines', label: "Vine's", icon: 'book', description: 'New Testament word meanings and expository reference material.' },
   { id: 'facts-info', group: 'Facts & Info', label: 'Facts & Info', icon: 'info', description: 'Topical studies that add context to difficult questions.' },
-  { id: 'bhsa', group: 'bhsa', label: 'BHS / Hebrew', icon: 'scroll', description: 'Hebrew text, morphology, and linked research sources.' },
-  { id: 'n1904', group: 'n1904', label: 'NA / Greek', icon: 'book', description: 'Greek text resources for careful New Testament study.' },
+  { id: 'bhsa', group: 'bhsa', label: 'BHS / Hebrew', icon: 'scroll', description: 'Hebrew alignment and morphology metadata for Bible word study.' },
+  { id: 'n1904', group: 'n1904', label: 'NA / Greek', icon: 'book', description: 'Greek alignment metadata for careful New Testament word study.' },
 ];
 
 const factsInfoPathHandoffs = [
@@ -602,6 +602,7 @@ function App() {
   const [libraryQuery, setLibraryQuery] = useState('');
   const [learnFocusPathId, setLearnFocusPathId] = useState(null);
   const [learnFocusStudyPackId, setLearnFocusStudyPackId] = useState(null);
+  const [learnWordStudyQuery, setLearnWordStudyQuery] = useState('');
   const [journeyFocusLessonId, setJourneyFocusLessonId] = useState(null);
   const [bibleLocation, setBibleLocation] = useState(() => readLocal('fdl-bible-location', { bookId: 'JHN', chapter: 1 }));
   const [bibleHistory, setBibleHistory] = useState(readBibleHistory);
@@ -895,6 +896,7 @@ function App() {
     if (view !== 'learn') {
       setLearnFocusPathId(null);
       setLearnFocusStudyPackId(null);
+      setLearnWordStudyQuery('');
     }
     if (view !== 'bible') setBibleFocusTarget(null);
     setActiveView(view);
@@ -915,6 +917,13 @@ function App() {
     setLibraryGroup(groupName);
     setLibraryQuery(query);
     navigate('library');
+  }
+
+  function openLearnWordStudy(query = '') {
+    setLearnWordStudyQuery(String(query || '').trim());
+    setSelectedArticle(null);
+    setActiveView('learn');
+    setMobileMenuOpen(false);
   }
 
   function openFactsPath(pathId) {
@@ -1220,6 +1229,11 @@ function App() {
   }
 
   function openGlobalLibraryResult(result) {
+    if (result?.type === 'research') {
+      openLearnWordStudy(result.query || result.title?.split(' · ')[0] || '');
+      setGlobalSearchOpen(false);
+      return;
+    }
     const libraryQuery = result?.type === 'research' ? '' : (result?.query || result?.title || '');
     openLibraryGroup(result?.groupName || 'All', libraryQuery);
     setGlobalSearchOpen(false);
@@ -1461,7 +1475,7 @@ function App() {
             <>
               {activeView === 'home' && <Home onNavigate={navigate} onOpenArticle={openArticle} onOpenBibleReference={openBibleReference} onOpenJourneyLesson={openJourneyLesson} bookmarks={bookmarks} toggleBookmark={toggleBookmark} completedLessons={completedLessons} bibleLocation={bibleLocation} bibleHistory={bibleHistory} books={runtimeBooks} dailyVerse={dailyVerse} languageId={selectedLanguage.id} studyPlan={studyPlan} onSelectStudyFocus={selectStudyFocus} onToggleStudyStep={toggleStudyStep} onOpenStudyStep={openStudyStep} readingPlanState={readingPlanState} onSelectReadingPlan={selectReadingPlan} onToggleReadingPlanStep={toggleReadingPlanStep} onOpenReadingPlanStep={openReadingPlanStep} factsPathProgress={factsPathProgress} onOpenFactsPath={openFactsPath} />}
               {activeView === 'bible' && <Bible verses={runtimeVerses} books={runtimeBooks} location={runtimeBibleLocation} onChangeLocation={changeBibleLocation} loading={contentDatabase.status === 'loading' || bibleChapterLoading} focusTarget={bibleFocusTarget} onFocusTargetHandled={() => setBibleFocusTarget(null)} chapterError={bibleChapterError} onRetryChapter={retryBibleChapter} databaseStatus={contentDatabase.status} databaseError={contentDatabase.errorMessage} onRetryDatabase={retryContentDatabase} searchTerm={searchTerm} setSearchTerm={setSearchTerm} bookmarks={bookmarks} toggleBookmark={toggleBookmark} highlights={highlights} toggleHighlight={toggleHighlight} notes={notes} saveNote={saveNote} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} completedLessons={completedLessons} toggleLesson={toggleLesson} />}
-              {activeView === 'learn' && <Learn articles={allArticles} sourceAssets={contentDatabase.sourceAssets || []} onOpenArticle={openArticle} onOpenLibraryGroup={openLibraryGroup} onOpenReference={openBibleReference} onOpenBible={() => openBibleFocus('audio')} onOpenDownloads={() => navigate('downloads')} onSaveGuide={saveDownloadedGuide} initialPathId={learnFocusPathId} studyPacks={studyPacks} savedStudyPacks={savedStudyPacks} onToggleStudyPack={toggleSavedStudyPack} completedResourcesByPack={studyPackProgress} onToggleStudyPackResource={toggleStudyPackResource} completedSectionsByPath={factsPathProgress} onToggleFactsPathSection={toggleFactsPathSection} questionProgress={questionProgress} onToggleQuestionProgress={toggleQuestionProgress} onOpenStudyPackResource={openStudyPackResource} initialStudyPackId={learnFocusStudyPackId} />}
+              {activeView === 'learn' && <Learn articles={allArticles} sourceAssets={contentDatabase.sourceAssets || []} onOpenArticle={openArticle} onOpenLibraryGroup={openLibraryGroup} onOpenReference={openBibleReference} onOpenBible={() => openBibleFocus('audio')} onOpenDownloads={() => navigate('downloads')} onSaveGuide={saveDownloadedGuide} initialPathId={learnFocusPathId} initialWordStudyQuery={learnWordStudyQuery} studyPacks={studyPacks} savedStudyPacks={savedStudyPacks} onToggleStudyPack={toggleSavedStudyPack} completedResourcesByPack={studyPackProgress} onToggleStudyPackResource={toggleStudyPackResource} completedSectionsByPath={factsPathProgress} onToggleFactsPathSection={toggleFactsPathSection} questionProgress={questionProgress} onToggleQuestionProgress={toggleQuestionProgress} onOpenStudyPackResource={openStudyPackResource} initialStudyPackId={learnFocusStudyPackId} />}
               {activeView === 'prayer' && <Prayer entries={prayerEntries} onSaveEntry={savePrayerEntry} onToggleEntry={togglePrayerEntryStatus} onDeleteEntry={deletePrayerEntry} onOpenReference={openBibleReference} />}
               {activeView === 'journey' && <Journey completedLessons={completedLessons} toggleLesson={toggleLesson} bookmarks={bookmarks} toggleBookmark={toggleBookmark} reflections={journeyReflections} onSaveReflection={saveJourneyReflection} onNavigate={navigate} onOpenReference={openBibleReference} initialLessonId={journeyFocusLessonId} />}
               {activeView === 'faith' && <Faith progress={faithProgress} selectedDayId={faithSelectedDayId} onSelectDay={setFaithSelectedDayId} onStart={startFaithPath} onToggleDay={toggleFaithDay} onSaveTestimony={saveFaithTestimony} onNavigate={navigate} onOpenReference={openBibleReference} onOpenArticle={openArticle} />}
@@ -2678,7 +2692,7 @@ function Bible({ verses: verseList, books: bookList, location, onChangeLocation,
   );
 }
 
-function Learn({ articles: articleList, sourceAssets = [], onOpenArticle, onOpenLibraryGroup, onOpenReference, onOpenBible, onOpenDownloads, onSaveGuide, initialPathId = null, studyPacks: packList = studyPacks, savedStudyPacks = [], onToggleStudyPack, completedResourcesByPack = {}, onToggleStudyPackResource, completedSectionsByPath = {}, onToggleFactsPathSection, questionProgress = [], onToggleQuestionProgress, onOpenStudyPackResource, initialStudyPackId = null }) {
+function Learn({ articles: articleList, sourceAssets = [], onOpenArticle, onOpenLibraryGroup, onOpenReference, onOpenBible, onOpenDownloads, onSaveGuide, initialPathId = null, initialWordStudyQuery = '', studyPacks: packList = studyPacks, savedStudyPacks = [], onToggleStudyPack, completedResourcesByPack = {}, onToggleStudyPackResource, completedSectionsByPath = {}, onToggleFactsPathSection, questionProgress = [], onToggleQuestionProgress, onOpenStudyPackResource, initialStudyPackId = null }) {
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
   const searchRef = useRef(null);
@@ -2739,7 +2753,7 @@ function Learn({ articles: articleList, sourceAssets = [], onOpenArticle, onOpen
       {visibleStudyPacks.length > 0 && <StudyPackShelf packs={visibleStudyPacks} savedStudyPacks={savedStudyPacks} completedResourcesByPack={completedResourcesByPack} onToggleStudyPackResource={onToggleStudyPackResource} onToggleStudyPack={onToggleStudyPack} onOpenResource={onOpenStudyPackResource} onSaveGuide={onSaveGuide} initialPackId={initialStudyPackId} />}
       {category === 'Study Packs' && visibleStudyPacks.length === 0 && <EmptyState icon="database" title="No study packs found" text="Try another search to find a practical reading bundle." />}
       <ResearchCollectionShelf sourceAssets={sourceAssets} onOpenLibraryGroup={onOpenLibraryGroup} />
-      <WordStudyExplorer onOpenReference={onOpenReference} />
+      <WordStudyExplorer initialQuery={initialWordStudyQuery} onOpenReference={onOpenReference} />
       {visibleFactsReadingPaths.length > 0 && <FactsInfoReadingPaths paths={visibleFactsReadingPaths} articles={articleList} completedSectionsByPath={completedSectionsByPath} onToggleFactsPathSection={onToggleFactsPathSection} onOpenArticle={onOpenArticle} onOpenReference={onOpenReference} initialPathId={initialPathId} />}
       <AskQuestion questions={questionArticles} onOpenArticle={onOpenArticle} onOpenReference={onOpenReference} />
       {visibleQuestions.length > 0 && <QuestionLibrary questions={visibleQuestions} exploredQuestionIds={questionProgress} onToggleQuestionProgress={onToggleQuestionProgress} onOpenArticle={onOpenArticle} />}
@@ -2896,13 +2910,21 @@ function ResearchCollectionShelf({ sourceAssets = [], onOpenLibraryGroup }) {
   </section>;
 }
 
-function WordStudyExplorer({ onOpenReference }) {
+function WordStudyExplorer({ initialQuery = '', onOpenReference }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState(null);
+  const appliedInitialQuery = useRef(null);
   const normalizedQuery = query.trim();
   const selectedEntry = results.find((entry) => entry.strongNumber === selectedNumber) || null;
+
+  useEffect(() => {
+    const nextQuery = String(initialQuery || '').trim();
+    if (!nextQuery || nextQuery === appliedInitialQuery.current) return;
+    appliedInitialQuery.current = nextQuery;
+    setQuery(nextQuery);
+  }, [initialQuery]);
 
   useEffect(() => {
     if (!normalizedQuery) {
@@ -3945,8 +3967,8 @@ function sourceGuidanceForAsset(asset) {
   }
   if (group === 'strongs') return { icon: 'scroll', title: 'Word-study use in the app', text: 'Strong’s source files support the local lexicon, verse-to-number mappings, occurrences, and related passage discovery shown in the Bible reader. The raw research file is not presented as cleared public content.', action: 'bible', focusTarget: 'word-study', actionLabel: 'Open the Bible word study' };
   if (group === 'vines') return { icon: 'book', title: 'Word-study use in the app', text: 'Vine’s source files supply New Testament word-study context alongside the Strong’s entries in the Bible reader. This catalog entry records provenance while review continues.', action: 'bible', focusTarget: 'word-study', actionLabel: 'Open the Bible word study' };
-  if (group === 'bhsa') return { icon: 'scroll', title: 'Hebrew research use', text: 'These Hebrew and morphology resources are catalogued for careful study and future linked tools. They are not treated as automatically redistributable source text.' };
-  if (group === 'n1904') return { icon: 'book', title: 'Greek research use', text: 'These Greek-text resources are catalogued for careful New Testament study and future linked tools. They are not treated as automatically redistributable source text.' };
+  if (group === 'bhsa') return { icon: 'scroll', title: 'Hebrew research use', text: 'The app uses the review-labeled BHSA-derived alignment metadata in Bible word studies to show Hebrew lemmas, transliterations, glosses, morphology, and occurrence counts. Raw Hebrew source files remain outside the renderer bundle until their redistribution status is confirmed.', action: 'bible', focusTarget: 'word-study', actionLabel: 'Open Hebrew word study' };
+  if (group === 'n1904') return { icon: 'book', title: 'Greek research use', text: 'The app uses the review-labeled N1904-derived alignment metadata in Bible word studies to show Greek lemmas, transliterations, glosses, morphology, and occurrence counts. Raw Greek source files remain outside the renderer bundle until their redistribution status is confirmed.', action: 'bible', focusTarget: 'word-study', actionLabel: 'Open Greek word study' };
   if (asset?.category === 'bible') return { icon: 'book', title: 'Bible conversion use', text: 'Bible source material is normalized into the offline runtime database when its conversion and review rules allow it. The reader consumes stable database rows rather than opening this raw file.' , action: 'bible', focusTarget: 'read', actionLabel: 'Open the Bible reader' };
   if (asset?.category === 'media') return { icon: 'sparkles', title: 'Visual asset use', text: 'This file is catalogued as a visual source for artwork and future media review. It is not bundled or displayed as public content until its rights and purpose are confirmed.' };
   if (asset?.category === 'documentation' || asset?.category === 'tooling') return { icon: 'info', title: 'Build and review use', text: 'This file supports conversion, documentation, or source review. It remains visible in the catalog so the provenance of the app’s data pipeline is not hidden.' };

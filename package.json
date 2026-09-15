@@ -17,6 +17,7 @@
     "verify:accessibility": "node scripts/verify-accessibility.cjs",
     "verify:links": "node scripts/verify-content-links.cjs",
     "verify:coverage": "node scripts/verify-source-coverage.cjs",
+    "verify:word-study": "node scripts/verify-word-study.cjs",
     "verify:review": "node scripts/review-content-assets.cjs",
     "verify:privacy": "node scripts/verify-privacy-configuration.cjs",
     "verify:updates": "node scripts/verify-update-safety.cjs",
