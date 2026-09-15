@@ -970,6 +970,47 @@ This queue is intentionally updated as the product advances:
 
 - Configure the existing production Android signing identity in GitHub Actions using the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`, and complete the 1,566-asset rights/attribution review. Do not generate a replacement signing identity casually: changing the certificate can prevent future updates over the existing Android package.
 
+## 2026-09-15 — Bible reader Translation button
+
+### Changed
+
+- Moved the Bible text/language selector out of the reader tab header and placed a clear `Translation` button in the reading-controls row directly between the `A+` font control and the `Paper` / `Sepia` / `Low light` reading-tone control.
+- The button opens the configured language choices from the existing translation pipeline. Selecting a language updates the persisted Bible reader preference and immediately uses bundled verse text when available or the existing online/cached chapter translation path when it is not.
+- Bundled Bible text is identified in the menu separately from online translation choices, so readers can see which options are included locally.
+- Added a direct `Compare bundled text variants` action to the new menu while retaining the existing comparison view and side-panel entry point.
+- Added localized labels for the new translation control and menu in the existing English, Bulgarian, Chinese, and Spanish core-copy sets.
+- Added responsive and RTL-aware styling so the control and menu remain usable in the compact Android reader layout.
+
+### Validation
+
+- `npm run verify:bible` passed, including the new assertion that the Translation control appears before the reading-tone control and updates the selected Bible text.
+- `npm run verify:privacy` passed; the Bible-specific translation boundary remains enforced.
+- `npm run verify:accessibility` passed for the existing modal/dialog surfaces.
+- `npm run verify:links` passed with 368 Scripture references and 80 in-app actions resolved.
+- `git diff --check` passed with only the repository's normal LF-to-CRLF warnings.
+
+### Boundaries and follow-up
+
+- No renderer, Windows, or Android build was made for this source change, and no phone installation was changed. The new toolbar control will appear on the next authorized build/install.
+- Online translation still respects the app's offline-only privacy setting and only uses cached/bundled text when network translation is unavailable.
+
+## 2026-09-15 — v0.2.29 release-mode builds after the Translation control
+
+### Build results
+
+- Rebuilt both platform packages from the source that includes the Bible reader `Translation` button.
+- Windows production-mode installer: [`release/From-Islam-to-Christ-0.2.29-x64.exe`](../release/From-Islam-to-Christ-0.2.29-x64.exe), 154,491,179 bytes, SHA-256 `554BBAB6F4BF4BEA3D80C60C5E6575D960C42E8BA1E33797E0E99A46788B241C`.
+- Windows blockmap: [`release/From-Islam-to-Christ-0.2.29-x64.exe.blockmap`](../release/From-Islam-to-Christ-0.2.29-x64.exe.blockmap), 162,258 bytes, SHA-256 `CA06148B46AE2426B454A79F2F30B0047770125117F10A2F879480ABFB7260E6`.
+- Android release-variant output: [`android/app/build/outputs/apk/release/app-release-unsigned.apk`](../android/app/build/outputs/apk/release/app-release-unsigned.apk), 42,233,213 bytes, SHA-256 `0ED1E70695D58CFDEA7FC4497460E9141B967D593AC959353D16203178B87C73`.
+- Gradle `assembleRelease` completed successfully. The Android artifact is intentionally identified as unsigned: no production keystore is available in this workspace, so it is not eligible for an official public Android release or safe update over the signed phone install.
+- Electron Builder completed the Windows NSIS package in release mode. `Get-AuthenticodeSignature` reports `NotSigned` because no Windows Authenticode certificate is configured.
+
+### Validation and publication boundary
+
+- Passed `npm run verify:bible`, `npm run verify:privacy`, `npm run verify:accessibility`, `npm run verify:links`, `npm run verify:database`, and `git diff --check` after the source update.
+- The local builds are ready for inspection, but no v0.2.29 GitHub binary release was created because the Android production signing and 1,566-asset licensing/attribution gates remain open.
+- The public release channel therefore remains v0.2.28 until the production Android signing identity and rights review are completed.
+
 ## Future entry template
 
 Use this structure for each meaningful future change:

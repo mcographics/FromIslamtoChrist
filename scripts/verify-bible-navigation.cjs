@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 
 async function main() {
@@ -42,7 +43,14 @@ async function main() {
   assert.equal(resolveBibleReference('Unknown 1:1', books), null, 'Unknown books must be rejected.');
   assert.equal(resolveBibleReference('John', books), null, 'A book without a chapter must not be treated as a location.');
 
-  console.log(`Bible navigation verified: ${referenceCases.length} references, canonical/abbreviated book lookup, and invalid-location guards passed.`);
+  const appSource = fs.readFileSync(`${process.cwd()}\\src\\App.jsx`, 'utf8');
+  const stylesSource = fs.readFileSync(`${process.cwd()}\\src\\styles.css`, 'utf8');
+  assert.match(appSource, /reader-translation-control[\s\S]*reader-translation-button[\s\S]*reader-tone-button/, 'The Bible reader must place the Translation button before the reading-tone control.');
+  assert.match(appSource, /BUNDLED_BIBLE_LANGUAGE_IDS\.includes\(option\.id\)/, 'The Translation menu must identify bundled Bible text.');
+  assert.match(appSource, /updateReaderPreference\('translation', option\.id\)/, 'The Translation menu must update the selected Bible text.');
+  assert.match(stylesSource, /\.reader-translation-menu\s*\{/, 'The Translation menu must have a dedicated reader layout.');
+
+  console.log(`Bible navigation verified: ${referenceCases.length} references, canonical/abbreviated book lookup, invalid-location guards, and the reader Translation control passed.`);
 }
 
 main().catch((error) => {
