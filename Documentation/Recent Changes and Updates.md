@@ -36,7 +36,7 @@ This record is separate from:
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
 | Current build instruction | The 2026-09-15 user request authorized the next Windows/Android release build, GitHub push, and promotion of the release; v0.2.30 is now public with its signing and rights limitations stated in the release notes |
-| Current source status | v0.2.30 source commits `a1f5ece` and `06fe134` are pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. No phone installation was performed in this release turn. |
+| Current source status | v0.2.30 source commits `a1f5ece` and `06fe134` are pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. A separate debug-key-signed device copy is installed on the connected Samsung SM-G781W at version `0.2.30` / code `32`, with no uninstall or data reset. |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -1082,6 +1082,26 @@ This queue is intentionally updated as the product advances:
 - Windows users can see the public v0.2.30 release through the GitHub/Electron release channel, subject to the installer’s unsigned Authenticode status.
 - Android users should not treat `app-release-unsigned.apk` as a production update. The Android updater intentionally ignores that filename because it is not a production-signed APK; a production keystore and product-named signed APK are still required for a safe Android update path.
 - No phone installation or uninstall was performed when the draft was promoted. The website was not modified by this release promotion.
+
+## 2026-09-15 — v0.2.30 local APK copies and connected-phone installation
+
+### Device and local files
+
+- Copied the exact v0.2.30 release-variant APK into the visible `release` folder as [`release/From-Islam-to-Christ-0.2.30-release-unsigned.apk`](../release/From-Islam-to-Christ-0.2.30-release-unsigned.apk), 42,233,777 bytes, SHA-256 `6B5F8B91E443DB0C7F7D6B05D06A52BD2A045AC8FD86604CCD1EE4693C0F39CE`.
+- Created a separate device-install copy as [`release/From-Islam-to-Christ-0.2.30-device-debug-signed.apk`](../release/From-Islam-to-Christ-0.2.30-device-debug-signed.apk), 42,281,484 bytes, SHA-256 `79626E368085B9ECA74F2F383362ACA42CC2B77BD7D5A559DD94673A84B4EE8D`.
+- The device copy uses the local Android debug keystore certificate SHA-256 `dc272c4c52d0e4fbfab20f110ce52a7ffea0fca517fa735a898100d32d90df3b`, the same certificate identity used by the existing phone installation. `apksigner verify` reports valid v2 and v3 signatures.
+
+### Phone installation
+
+- The connected Samsung SM-G781W was detected through ADB.
+- Installed the device copy with `adb install -r --no-incremental`; ADB returned `Success`.
+- Android now reports package `com.mcographics.fromdarknesstolight`, version name `0.2.30`, version code `32`, and APK signing version 3.
+- The in-place install did not uninstall the app or reset its local app data. The public GitHub APK remains unsigned; the phone is using the separately signed local device copy.
+
+### Boundaries
+
+- This verifies package installation and Android package metadata, not a complete visual click-through of every app screen. The connected phone was not navigated through the full app in this action.
+- The device copy is for local testing only and must not replace the production signing identity or be presented as a Google Play-signed build.
 
 ## Future entry template
 
