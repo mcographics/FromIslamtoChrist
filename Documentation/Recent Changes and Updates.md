@@ -36,7 +36,7 @@ This record is separate from:
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
 | Current build instruction | The 2026-09-15 user request authorized the next Windows/Android release build and GitHub push; v0.2.30 source and release-mode artifacts are built locally, with binary publication kept as a maintainer draft pending production signing and rights review |
-| Current source status | v0.2.30 source is ready to push. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. No phone installation was performed in this release turn. |
+| Current source status | v0.2.30 source commit `a1f5ece` is pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. No phone installation was performed in this release turn. |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -1065,7 +1065,7 @@ This queue is intentionally updated as the product advances:
 
 - Passed `npm run verify:privacy`, `npm run verify:privacy:matrix`, `npm run verify:accessibility`, `npm run verify:bible`, `npm run verify:updates`, `npm run verify:database`, `npm run verify:links`, and `git diff --check` before packaging. The renderer/data builds and both platform packaging commands completed successfully.
 - `npm run verify:licenses -- --release` was run as the release gate and intentionally blocked publication: all 1,566 Data assets still need license or attribution review.
-- The source push and binary upload are being handled as v0.2.30 maintainer work. The GitHub binary release must remain a draft until a stable production Android signing identity is configured, Windows signing is addressed as appropriate, and the 1,566-asset licensing/attribution review is complete.
+- Source commit `a1f5ece` was pushed to `main`, and the four artifacts were uploaded to the maintainer-only [v0.2.30 engineering draft](https://github.com/mcographics/FromIslamtoChrist/releases/tag/untagged-03a03ad95db2c1ab3688). The GitHub binary release must remain a draft until a stable production Android signing identity is configured, Windows signing is addressed as appropriate, and the 1,566-asset licensing/attribution review is complete.
 - No phone installation, uninstall, or device click-through was performed in this release turn. The public updater must continue to ignore this draft and the public release channel remains on the last eligible release until the gates are closed.
 
 ## Future entry template
