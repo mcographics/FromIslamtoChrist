@@ -860,6 +860,22 @@ This queue is intentionally updated as the product advances:
 - The existing v0.2.28 APK on the phone does not contain this continuation until a future authorized build. The phone was not connected for this source-only pass.
 - Discreet Mode remains a casual-discovery and window-protection aid, not a hidden launcher identity, encrypted-storage system, or guarantee against a person with device/storage access.
 
+## 2026-09-14 — v0.2.28 connected-phone Bible navigation smoke test
+
+### Runtime evidence
+
+- Confirmed the Android device `RFCRC15568L` is connected through ADB and launched the installed package `com.mcographics.fromdarknesstolight`.
+- Confirmed the installed application reports version name `0.2.28`, version code `30`, and the `MainActivity` is the resumed Activity.
+- Opened the Bible book picker on the phone, changed from John to Acts, and confirmed the reader reached `Acts 1` with verse-level controls exposed in the accessibility tree.
+- Reopened the picker, returned to John, and confirmed the reader restored `John 1`; the user's reader location was returned to its original value after the smoke test.
+- Captured and visually inspected the native Android book picker while it was open. The picker displayed the selectable book list rather than remaining on a loading-only surface.
+
+### Boundaries
+
+- This is runtime evidence for the already-installed v0.2.28 APK, not for the newer source-only Discreet Mode task-identity continuation. No build or reinstall was performed.
+- The test covered the book/chapter navigation path only; it did not claim full feature-by-feature device QA, screenshot protection QA, recent-task QA, translation QA, or audio playback QA.
+- The current no-build instruction remains active. The next privacy-specific device test requires an authorized APK build containing the source changes.
+
 ## Future entry template
 
 Use this structure for each meaningful future change:
