@@ -35,8 +35,8 @@ This record is separate from:
 | Android shell | Capacitor 8 wrapping the shared renderer |
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
-| Current build instruction | The 2026-09-15 user request authorized the next Windows/Android release build and GitHub push; v0.2.30 source and release-mode artifacts are built locally, with binary publication kept as a maintainer draft pending production signing and rights review |
-| Current source status | v0.2.30 source commit `a1f5ece` is pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. No phone installation was performed in this release turn. |
+| Current build instruction | The 2026-09-15 user request authorized the next Windows/Android release build, GitHub push, and promotion of the release; v0.2.30 is now public with its signing and rights limitations stated in the release notes |
+| Current source status | v0.2.30 source commits `a1f5ece` and `06fe134` are pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. No phone installation was performed in this release turn. |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -1067,6 +1067,21 @@ This queue is intentionally updated as the product advances:
 - `npm run verify:licenses -- --release` was run as the release gate and intentionally blocked publication: all 1,566 Data assets still need license or attribution review.
 - Source commit `a1f5ece` was pushed to `main`, and the four artifacts were uploaded to the maintainer-only [v0.2.30 engineering draft](https://github.com/mcographics/FromIslamtoChrist/releases/tag/untagged-03a03ad95db2c1ab3688). The GitHub binary release must remain a draft until a stable production Android signing identity is configured, Windows signing is addressed as appropriate, and the 1,566-asset licensing/attribution review is complete.
 - No phone installation, uninstall, or device click-through was performed in this release turn. The public updater must continue to ignore this draft and the public release channel remains on the last eligible release until the gates are closed.
+
+## 2026-09-15 — v0.2.30 promoted to official public GitHub release
+
+### GitHub publication
+
+- Promoted the v0.2.30 engineering draft to the official public [From Islam to Christ v0.2.30 GitHub release](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.30).
+- The public release contains the Windows installer, Windows blockmap, `latest.yml`, and the Android `app-release-unsigned.apk` artifact built in the preceding entry.
+- GitHub created the public `v0.2.30` tag at the pushed `main` source containing the Reset App implementation and its release documentation.
+- The official release notes explicitly identify the Windows installer as release-mode but not Authenticode-signed, identify the Android file as unsigned and unsuitable for updating an existing signed install, explain that the Android in-app updater rejects unsigned APK assets, and keep the 1,566-asset rights/attribution review visible.
+
+### Current platform boundary
+
+- Windows users can see the public v0.2.30 release through the GitHub/Electron release channel, subject to the installer’s unsigned Authenticode status.
+- Android users should not treat `app-release-unsigned.apk` as a production update. The Android updater intentionally ignores that filename because it is not a production-signed APK; a production keystore and product-named signed APK are still required for a safe Android update path.
+- No phone installation or uninstall was performed when the draft was promoted. The website was not modified by this release promotion.
 
 ## Future entry template
 
