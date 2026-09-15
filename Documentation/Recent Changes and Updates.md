@@ -36,7 +36,7 @@ This record is separate from:
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
 | Current build instruction | The 2026-09-14 user request authorizes this v0.2.28 build and source/website publication; device installation remains separate |
-| Current source status | v0.2.28 Windows and Android local artifacts are packaged; public release remains gated |
+| Current source status | v0.2.28 Windows and Android local artifacts are packaged; source commit `d45df25` is pushed; public release remains gated |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -67,6 +67,14 @@ The public-facing product name is **From Islam to Christ**. The Android applicat
 - The strict content-rights audit remains `0 cleared / 1,566 pending review` (`1,553 needs-review` and `13 source-notice`). The GitHub release workflow therefore remains correctly blocked by `npm run verify:licenses -- --release`.
 - No app-specific production keystore or GitHub Android signing secrets are present in this checkout/account context. The signed v0.2.27 public APK was verified separately, but its private signing key is not available here and another project’s key must not be reused.
 - No phone installation, visual QA, or click-through was performed for v0.2.28 because the current request authorized building and publication, not installation. Package metadata and signature checks are the evidence recorded here.
+
+## 2026-09-14 — GitHub source and website publication
+
+- Pushed the app source and documentation as [`d45df25`](https://github.com/mcographics/FromIslamtoChrist/commit/d45df25) to `mcographics/FromIslamtoChrist` `main`.
+- Did not create a `v0.2.28` tag or public binary release. The Windows installer is not Authenticode-signed, the Android package is release-mode but unsigned, and the content manifest has 0 of 1,566 assets cleared for redistribution. The existing public v0.2.27 release remains the safe website download entry.
+- Updated the companion website project card, homepage release metadata, full project page, RSS, sitemap, regression tests, and a detailed v0.2.28 build journal. The website commit is [`1300421`](https://github.com/mcographics/mcographics.github.io/commit/1300421), rebased onto the remote `8f17a80` visibility update so unrelated site work was retained.
+- GitHub Pages deployment run [`34919377924`](https://github.com/mcographics/mcographics.github.io/actions/runs/34919377924) completed successfully. Live HTTP checks returned 200 for the homepage, From Islam to Christ project page, v0.2.28 journal, RSS feed, and sitemap. The live project page exposes v0.2.27 and links to the new journal; the stale `app-debug.apk` path is absent from the live homepage.
+- This handoff contains source-push, local-build, packaging, static-validation, website-build, Pages-deployment, and live-HTTP evidence. It does not claim Android installation, phone click-through, Windows runtime interaction, or a public v0.2.28 binary release.
 
 ## 2026-09-14 — Unreleased source continuation: in-app terms, rights, about, and credits
 

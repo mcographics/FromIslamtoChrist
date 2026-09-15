@@ -18,7 +18,9 @@
 - Android `apksigner verify --verbose` reports `DOES NOT VERIFY` with `Missing META-INF/MANIFEST.MF`, confirming that the local package is release-mode but unsigned. It is intentionally not uploaded to GitHub and cannot be used as an update over the signed public v0.2.27 package. The v0.2.27 public APK was separately confirmed signed with APK v2/v3 for comparison.
 - Build warnings recorded for follow-up: the Vite JavaScript bundle is larger than 500 kB after minification, Electron Builder reports a missing package author field, Android reports `flatDir` repository and SDK XML compatibility warnings, and the local Windows installer is unsigned.
 - The strict content-rights gate remains unchanged. The current manifest reports 0 of 1,566 local assets cleared, so no public v0.2.28 release will be represented as available until that gate and Android production signing are both resolved.
-- GitHub source publication and the companion website update are documented after their respective commits and deployment checks below.
+- App source and documentation were pushed to [`mcographics/FromIslamtoChrist`](https://github.com/mcographics/FromIslamtoChrist/commit/d45df25) at commit `d45df25` on `main`; no `v0.2.28` tag or GitHub binary release was created.
+- The companion site was updated and pushed to [`mcographics/mcographics.github.io`](https://github.com/mcographics/mcographics.github.io/commit/1300421) at commit `1300421`. GitHub Pages run [34919377924](https://github.com/mcographics/mcographics.github.io/actions/runs/34919377924) completed successfully.
+- Live HTTP verification returned 200 for the homepage, [`From Islam to Christ` project page](https://mcographics.github.io/projects/from-darkness-to-light/), [`v0.2.28 build journal`](https://mcographics.github.io/blog/from-islam-to-christ-v0-2-28-build/), RSS, and sitemap. The live project page exposes the public v0.2.27 links and the v0.2.28 journal; the homepage no longer contains the stale `app-debug.apk` path.
 
 ## Unreleased source continuation — multilingual UI and RTL layout — 2026-09-14
 
