@@ -1,6 +1,6 @@
 {
   "name": "from-islam-to-christ",
-  "version": "0.2.29",
+  "version": "0.2.30",
   "private": true,
   "type": "module",
   "description": "A private Bible-centered Electron and React prototype for From Islam to Christ.",

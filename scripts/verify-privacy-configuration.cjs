@@ -85,6 +85,12 @@ requireText(electronPreload, /setPrivacyState/, 'Electron preload must expose th
 requireText(electronSplash, /neutral-startup/, 'Electron splash must have a neutral startup presentation.');
 requireText(electronSplash, /data-branded-src/, 'Electron splash must avoid loading the branded image during neutral startup.');
 requireText(app, /clearAutomaticTranslationCache\(\)/, 'Private-data deletion must clear the automatic translation cache.');
+requireText(app, /function clearAppStorage\(\)/, 'Reset App must have a centralized app-storage clearing boundary.');
+requireText(app, /startsWith\(APP_STORAGE_PREFIX\)/, 'Reset App must clear future app-owned storage keys by prefix.');
+requireText(app, /function resetApp\(\)/, 'Reset App must reset the in-memory application state.');
+requireText(app, /onResetApp=\{resetApp\}/, 'Settings must expose the complete Reset App action.');
+requireText(app, /function ResetAppSettings[\s\S]*?Reset App/, 'Settings must present a clearly labeled Reset App control.');
+requireText(app, /setDiscreetStartupEntered\(false\)/, 'Reset App must restore the first-launch startup boundary.');
 requireText(app, /data-no-translate=\{translationKey !== 'en' \? 'true' : undefined\}/, 'Bible reader verses must use the Bible-specific translation path.');
 requireText(app, /data-no-translate=\{translation\?\.id !== 'en' \? 'true' : undefined\}/, 'Bible audio verse choices must use the Bible-specific translation path.');
 requireText(translationService, /let translationOfflineOnly = false/, 'Automatic translation must have an explicit offline-only state.');

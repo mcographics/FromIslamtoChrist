@@ -478,6 +478,7 @@ function triggerTextDownload(content, filename) {
   window.setTimeout(() => window.URL.revokeObjectURL(url), 1200);
 }
 
+const APP_STORAGE_PREFIX = 'fdl-';
 const PRIVATE_STORAGE_KEYS = [
   'fdl-active-view',
   'fdl-bookmarks',
@@ -512,6 +513,25 @@ const PRIVACY_LOCKOUT_THRESHOLD = 5;
 const PRIVACY_LOCKOUT_BASE_MS = 30 * 1000;
 const PRIVACY_LOCKOUT_MAX_MS = 5 * 60 * 1000;
 const PRIVACY_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+function clearAppStorage() {
+  const keys = new Set(PRIVATE_STORAGE_KEYS);
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(APP_STORAGE_PREFIX)) keys.add(key);
+    }
+  } catch {
+    // The known app keys below are still attempted if storage enumeration is unavailable.
+  }
+  keys.forEach((key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // A storage failure must not prevent the in-memory reset from completing.
+    }
+  });
+}
 
 function bytesToBase64(bytes) {
   let binary = '';
@@ -1352,11 +1372,17 @@ function App() {
     setPrivacyLockout({ failures: 0, lockedUntil: 0 });
   }
 
-  function deletePrivateData() {
-    PRIVATE_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+  function resetApp() {
+    clearAppStorage();
     clearAutomaticTranslationCache();
+    bibleChapterRequestRef.current += 1;
     setActiveView('home');
     setSelectedArticle(null);
+    setPendingBibleReference(null);
+    setShowPrivacyNotice(false);
+    setGlobalSearchOpen(false);
+    setMobileMenuOpen(false);
+    setUpdateState({ status: 'idle', currentVersion: APP_VERSION });
     setBookmarks(['verse-john-1-1']);
     setHighlights([]);
     setNotes({});
@@ -1377,17 +1403,31 @@ function App() {
     setDiscreetMode(true);
     setTheme('light');
     setSearchTerm('');
-    setGlobalSearchOpen(false);
-    setMobileMenuOpen(false);
+    setLibraryGroup('All');
+    setLibraryQuery('');
+    setLearnFocusPathId(null);
+    setLearnFocusStudyPackId(null);
+    setLearnWordStudyQuery('');
+    setJourneyFocusLessonId(null);
     suppressBibleHistoryRef.current = true;
     setBibleLocation({ bookId: 'JHN', chapter: 1 });
     setBibleHistory([]);
+    setBibleChapterLoading(false);
+    setBibleChapterError('');
+    setBibleChapterAttempt((current) => current + 1);
+    setBibleFocusTarget(null);
+    setTranslationStatus({ status: 'idle', pending: 0 });
     setPrivacyPin(null);
     setBiometricEnabled(false);
     setPrivacyLockout({ failures: 0, lockedUntil: 0 });
     setOfflineMode(false);
     setPrivacyLocked(false);
     setOnboardingComplete(false);
+    setDiscreetStartupEntered(false);
+  }
+
+  function deletePrivateData() {
+    resetApp();
   }
 
   function finishOnboarding(destination = 'home') {
@@ -1488,7 +1528,7 @@ function App() {
               {activeView === 'saved' && <Saved verses={runtimeVerses} languageId={selectedLanguage.id} bookmarks={bookmarks} highlights={highlights} notes={notes} journeyReflections={journeyReflections} savedStudyPacks={savedStudyPacks} toggleBookmark={toggleBookmark} toggleHighlight={toggleHighlight} saveNote={saveNote} onOpenArticle={openArticle} onOpenLesson={openJourneyLesson} onOpenReference={openBibleReference} onOpenStudyPack={openStudyPack} onToggleStudyPack={toggleSavedStudyPack} navigate={navigate} savedFolders={savedFolderState.folders} savedFolderAssignments={savedFolderState.assignments} onCreateFolder={createSavedFolder} onDeleteFolder={deleteSavedFolder} onAssignFolder={assignSavedItem} />}
               {activeView === 'downloads' && <Downloads guides={downloadedGuides} onOpenPack={openStudyPack} onOpenLearn={() => navigate('learn')} onRemove={removeDownloadedGuide} />}
               {activeView === 'library' && <Library assets={contentDatabase.sourceAssets || []} groups={contentDatabase.groups || []} initialGroup={libraryGroup} initialQuery={libraryQuery} onOpenLearn={() => navigate('learn')} onOpenFactsPath={openFactsPath} onOpenBible={openLibraryBibleDestination} />}
-              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} offlineMode={offlineMode} setOfflineMode={setOfflineMode} theme={theme} setTheme={setTheme} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} onUpdateAction={handleUpdateAction} contentDatabase={contentDatabase} onOpenLibrary={() => navigate('library')} privacyPinEnabled={Boolean(privacyPin)} biometricAvailable={biometricAvailable} biometricEnabled={biometricEnabled} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onEnableBiometric={enableBiometricUnlock} onDisableBiometric={() => setBiometricEnabled(false)} onLockApp={lockApp} onQuickClose={quickCloseApp} onDeletePrivateData={deletePrivateData} onShowOnboarding={() => setOnboardingComplete(false)} />}
+              {activeView === 'settings' && <Settings discreetMode={discreetMode} setDiscreetMode={setDiscreetMode} offlineMode={offlineMode} setOfflineMode={setOfflineMode} theme={theme} setTheme={setTheme} readerPreferences={readerPreferences} updateReaderPreference={updateReaderPreference} showPrivacyNotice={showPrivacyNotice} setShowPrivacyNotice={setShowPrivacyNotice} updateState={updateState} onCheckUpdates={checkForUpdates} onUpdateAction={handleUpdateAction} contentDatabase={contentDatabase} onOpenLibrary={() => navigate('library')} privacyPinEnabled={Boolean(privacyPin)} biometricAvailable={biometricAvailable} biometricEnabled={biometricEnabled} onEnablePrivacyLock={enablePrivacyLock} onDisablePrivacyLock={disablePrivacyLock} onEnableBiometric={enableBiometricUnlock} onDisableBiometric={() => setBiometricEnabled(false)} onLockApp={lockApp} onQuickClose={quickCloseApp} onDeletePrivateData={deletePrivateData} onResetApp={resetApp} onShowOnboarding={() => setOnboardingComplete(false)} />}
             </>
           )}
         </div>
@@ -3779,7 +3819,7 @@ function LanguageSettings({ readerPreferences, updateReaderPreference }) {
   </div>;
 }
 
-function Settings({ discreetMode, setDiscreetMode, offlineMode = false, setOfflineMode, theme, setTheme, readerPreferences, updateReaderPreference, showPrivacyNotice, setShowPrivacyNotice, updateState, onCheckUpdates, onUpdateAction, contentDatabase, onOpenLibrary, privacyPinEnabled, biometricAvailable, biometricEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onEnableBiometric, onDisableBiometric, onLockApp, onQuickClose, onDeletePrivateData, onShowOnboarding }) {
+function Settings({ discreetMode, setDiscreetMode, offlineMode = false, setOfflineMode, theme, setTheme, readerPreferences, updateReaderPreference, showPrivacyNotice, setShowPrivacyNotice, updateState, onCheckUpdates, onUpdateAction, contentDatabase, onOpenLibrary, privacyPinEnabled, biometricAvailable, biometricEnabled, onEnablePrivacyLock, onDisablePrivacyLock, onEnableBiometric, onDisableBiometric, onLockApp, onQuickClose, onDeletePrivateData, onResetApp, onShowOnboarding }) {
   const [showLegalInformation, setShowLegalInformation] = useState(false);
   const databaseValue = contentDatabase?.status === 'ready'
     ? `${contentDatabase.sourceAssetCount.toLocaleString()} sources · ${contentDatabase.bibleBookCount || 0} books · ${(contentDatabase.lexiconEntryCount || 0).toLocaleString()} terms`
@@ -3826,6 +3866,7 @@ function Settings({ discreetMode, setDiscreetMode, offlineMode = false, setOffli
           <UpdateSettings updateState={updateState} offlineMode={offlineMode} onCheckUpdates={onCheckUpdates} onUpdateAction={onUpdateAction} />
           <PrivacyLockSettings enabled={privacyPinEnabled} biometricAvailable={biometricAvailable} biometricEnabled={biometricEnabled} onEnable={onEnablePrivacyLock} onDisable={onDisablePrivacyLock} onEnableBiometric={onEnableBiometric} onDisableBiometric={onDisableBiometric} onLock={onLockApp} onQuickClose={onQuickClose} />
           <PrivateDataSettings onDelete={onDeletePrivateData} />
+          <ResetAppSettings onReset={onResetApp} />
         </section>
         <aside className="settings-aside">
           <div className="not-alone-card"><div className="cross-circle"><Icon name="cross" size={36} /></div><p>You are not alone.<br />There is hope.</p><em>Jesus loves you.</em></div>
@@ -4131,6 +4172,15 @@ function PrivateDataSettings({ onDelete }) {
     <div className="privacy-control-heading"><div><p className="eyebrow">Private state</p><h2 id="data-control-heading">Delete local data</h2></div><Icon name="database" size={21} /></div>
     <p className="privacy-control-description">Remove bookmarks, highlights, notes, private Saved folders, saved Study Packs, Study Pack checkpoints, downloaded study guides, reading-plan progress, study focus, prayer journal entries, Journey progress, Faith path progress, reading preferences, saved Bible location and reading history, and the local PIN from this device. The read-only content database is not deleted.</p>
     {!confirming ? <button className="text-button danger-button" type="button" onClick={() => setConfirming(true)}>Delete private data <Icon name="close" size={14} /></button> : <div className="delete-confirmation" role="alert"><strong>This cannot be undone.</strong><span>Reset the private state on this device?</span><div className="privacy-control-actions"><button className="danger-solid-button" type="button" onClick={() => { onDelete(); setConfirming(false); }}>Delete it</button><button className="text-button" type="button" onClick={() => setConfirming(false)}>Cancel</button></div></div>}
+  </section>;
+}
+
+function ResetAppSettings({ onReset }) {
+  const [confirming, setConfirming] = useState(false);
+  return <section className="reset-app-card card-surface" aria-labelledby="reset-app-heading">
+    <div className="privacy-control-heading"><div><p className="eyebrow">Start over</p><h2 id="reset-app-heading">Reset App</h2></div><Icon name="refresh" size={21} /></div>
+    <p className="privacy-control-description">Erase every saved setting and study state owned by this app—including Journey, Faith, questions, Facts &amp; Info paths, bookmarks, highlights, notes, prayer entries, saved folders, downloaded guides, reading plans, translations, language, appearance, privacy lock, and onboarding. The read-only content database stays installed.</p>
+    {!confirming ? <button className="text-button danger-button" type="button" onClick={() => setConfirming(true)}><Icon name="refresh" size={14} /> Reset App</button> : <div className="delete-confirmation reset-app-confirmation" role="alert"><strong>This cannot be undone.</strong><span>The app will return to the first-launch Decision Screen and Privacy Protection prompt.</span><div className="privacy-control-actions"><button className="danger-solid-button" type="button" onClick={() => { onReset(); setConfirming(false); }}>Reset everything</button><button className="text-button" type="button" onClick={() => setConfirming(false)}>Cancel</button></div></div>}
   </section>;
 }
 

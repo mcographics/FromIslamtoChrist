@@ -1990,11 +1990,16 @@ html[dir="rtl"] .mobile-drawer { border-right: 0; border-left: 1px solid var(--l
 .quick-close-button:hover { color: var(--blue); border-color: rgba(33, 151, 209, .58); background: var(--paper); }
 .data-control-card { border-color: rgba(180, 87, 77, .22); }
 .data-control-card .privacy-control-heading > .icon { color: #b25751; }
+.reset-app-card { border-color: rgba(151, 76, 67, .34); background: linear-gradient(135deg, color-mix(in srgb, var(--card) 88%, #b25751 12%), var(--card)); }
+.reset-app-card .privacy-control-heading > .icon { color: #a34a44; }
+.reset-app-card .privacy-control-description { max-width: 720px; }
 .delete-confirmation { display: grid; gap: 5px; padding: 13px; border: 1px solid rgba(180, 87, 77, .25); border-radius: 12px; background: rgba(180, 87, 77, .07); }
 .delete-confirmation strong { color: #a34a44; font-size: 11px; }
 .delete-confirmation > span { color: var(--muted); font-size: 10px; }
 .danger-solid-button { min-height: 36px; padding: 0 13px; color: #fff; border-radius: 19px; background: #b25751; font-size: 10px; font-weight: 800; }
 .danger-solid-button:hover { background: #963f3a; }
+.theme-dark .reset-app-card { border-color: rgba(237, 146, 133, .28); background: linear-gradient(135deg, color-mix(in srgb, var(--card) 90%, #7b3936 10%), var(--card)); }
+.theme-dark .reset-app-card .privacy-control-heading > .icon { color: #ed9285; }
 
 /* PIN lock screen */
 .privacy-lock-screen { display: grid; place-items: center; width: 100%; min-height: 100vh; padding: 24px; background: radial-gradient(circle at 50% 0, rgba(232, 189, 112, .18), transparent 42%), var(--page); }
@@ -2270,7 +2275,7 @@ html[dir="rtl"] .mobile-drawer { border-right: 0; border-left: 1px solid var(--l
   .reader-plan-step { grid-template-columns: 29px minmax(0, 1fr); gap: 9px; padding: 12px; }
   .reader-plan-marker { width: 29px; height: 29px; }
   .reader-plan-step-heading { display: grid; gap: 6px; }
-  .privacy-control-card, .data-control-card { padding: 18px; }
+  .privacy-control-card, .data-control-card, .reset-app-card { padding: 18px; }
   .quick-close-control { align-items: flex-start; flex-direction: column; }
   .quick-close-button { width: 100%; }
   .privacy-control-form { grid-template-columns: 1fr; }

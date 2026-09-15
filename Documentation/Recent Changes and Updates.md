@@ -28,15 +28,15 @@ This record is separate from:
 | Repository | `mcographics/FromIslamtoChrist` |
 | Branch | `main` |
 | HEAD at the start of this log | `52b0ca1` / tag `v0.2.27` |
-| Package version | `0.2.29` |
+| Package version | `0.2.30` |
 | Android application ID | `com.mcographics.fromdarknesstolight` |
-| Android version code | `31` |
+| Android version code | `32` |
 | Windows shell | Electron 44 + React 19 + Vite 6 |
 | Android shell | Capacitor 8 wrapping the shared renderer |
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
-| Current build instruction | The 2026-09-15 user request authorized a v0.2.29 Windows/Android build, GitHub publication, website update, and phone replacement; publication remains gated by production signing and rights review |
-| Current source status | v0.2.29 source and release-mode artifacts are built locally; the connected phone has the local debug-key v0.2.29 install, while no official production-signed public release has been published |
+| Current build instruction | The 2026-09-15 user request authorized the next Windows/Android release build and GitHub push; v0.2.30 source and release-mode artifacts are built locally, with binary publication kept as a maintainer draft pending production signing and rights review |
+| Current source status | v0.2.30 source is ready to push. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. No phone installation was performed in this release turn. |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -1019,6 +1019,54 @@ This queue is intentionally updated as the product advances:
 - Uploaded Windows updater metadata: `From-Islam-to-Christ-0.2.29-x64.exe.blockmap` and `latest.yml`.
 - Uploaded Android engineering artifact: `app-release-unsigned.apk`, 42,233,213 bytes.
 - The draft must not be promoted to public until a stable production Android signing identity is configured and the rights/attribution audit is complete.
+
+## 2026-09-15 — Reset App control
+
+### Changed
+
+- Added a dedicated `Reset App` section to Settings with a confirmation step so the user can intentionally return the application to a clean first-launch state.
+- Reset App clears every app-owned `fdl-*` local-storage key, including future app keys added under the same namespace and the automatic translation cache. It does not touch unrelated browser/site storage or delete the read-only bundled content database.
+- Reset App clears Journey lesson completion and reflections, Faith progress and testimony, questions and Facts & Info path checkpoints, Study Pack progress and saved packs, reading plans, downloaded guides, bookmarks, highlights, notes, prayer entries, saved folders, Bible location/history, reader preferences, language, appearance, Offline-only mode, privacy PIN/biometric state, and onboarding state.
+- Reset App also clears active navigation/search/focus state, invalidates an in-flight Bible chapter request, returns the selected Bible location to John 1, and restores the first-launch Decision Screen followed by the Privacy Protection prompt.
+- The existing Delete local data action now uses the same centralized reset implementation, so its behavior remains complete and its translation cache is also removed.
+- Reset App restores the default light appearance and Discreet Mode enabled, matching the safest first-launch defaults. Android and Electron receive the reset startup state through the existing privacy bridge.
+
+### Validation
+
+- `npm run verify:privacy` passed with source checks for the centralized app-storage boundary, prefix cleanup, Reset App Settings surface, and first-launch startup reset.
+- `npm run verify:privacy:matrix` passed for fresh launch, Discreet Mode states, protected sessions, neutral startup, and onboarding reset behavior.
+- `npm run verify:accessibility` passed for the confirmation dialog surfaces and shared focus handling.
+- `npm run verify:bible` passed after the reset now returns the reader location to John 1.
+- `git diff --check` passed with only the repository's normal LF-to-CRLF warnings.
+
+### Boundaries and follow-up
+
+- This is a source/UI change only. No build, phone installation, GitHub push, or release publication was performed for this Reset App change.
+- Reset App cannot erase operating-system records, screenshots, clipboard contents, external backups already made, or data copied outside the app. The privacy notice continues to explain those limits.
+
+## 2026-09-15 — v0.2.30 Reset App release build and GitHub draft
+
+### Changed
+
+- Advanced the package version to `0.2.30` and Android version code to `32`.
+- Included the new Settings `Reset App` flow in both platform builds. It clears app-owned `fdl-*` state, translation cache, progress, reader state, privacy state, and onboarding state, then returns the app to the first-launch Decision Screen and Privacy Protection prompt while leaving the read-only content database installed.
+- Regenerated the bundled content database and license manifest. The build indexed all 1,566 Data assets, 66 Bible books, 31,102 verses, 14,197 Strong's entries, 3,369 Vine's entries, and 12,234 original-language alignments. The rights manifest still reports 1,566 assets requiring review, so presence in the app does not yet mean redistribution rights are cleared.
+
+### Build results
+
+- Windows NSIS release-mode installer: [`release/From-Islam-to-Christ-0.2.30-x64.exe`](../release/From-Islam-to-Christ-0.2.30-x64.exe), 154,489,983 bytes, SHA-256 `32962A6AF4E13A690CDDE9EDBF8723FB8787D7FA88B2DA8CCCF7A0B90F817086`.
+- Windows updater blockmap: [`release/From-Islam-to-Christ-0.2.30-x64.exe.blockmap`](../release/From-Islam-to-Christ-0.2.30-x64.exe.blockmap), 161,416 bytes, SHA-256 `F1231CD6B7D7456A07B1673FF731471B79786E15085DBF8161CF038E09BAE849`.
+- Windows updater metadata: [`release/latest.yml`](../release/latest.yml), regenerated for version `0.2.30` and pointing to the product-named installer.
+- Android release-variant output: [`android/app/build/outputs/apk/release/app-release-unsigned.apk`](../android/app/build/outputs/apk/release/app-release-unsigned.apk), 42,233,777 bytes, SHA-256 `6B5F8B91E443DB0C7F7D6B05D06A52BD2A045AC8FD86604CCD1EE4693C0F39CE`.
+- Android package inspection reports application ID `com.mcographics.fromdarknesstolight`, version name `0.2.30`, version code `32`, and label `From Islam to Christ`. `apksigner verify` correctly reports that this artifact does not verify because it is unsigned; it is not a debug APK, but it is not a production-installable update.
+- Electron Builder completed the Windows package in release mode. `Get-AuthenticodeSignature` reports `NotSigned` because no Windows Authenticode certificate is configured.
+
+### Validation and publication boundary
+
+- Passed `npm run verify:privacy`, `npm run verify:privacy:matrix`, `npm run verify:accessibility`, `npm run verify:bible`, `npm run verify:updates`, `npm run verify:database`, `npm run verify:links`, and `git diff --check` before packaging. The renderer/data builds and both platform packaging commands completed successfully.
+- `npm run verify:licenses -- --release` was run as the release gate and intentionally blocked publication: all 1,566 Data assets still need license or attribution review.
+- The source push and binary upload are being handled as v0.2.30 maintainer work. The GitHub binary release must remain a draft until a stable production Android signing identity is configured, Windows signing is addressed as appropriate, and the 1,566-asset licensing/attribution review is complete.
+- No phone installation, uninstall, or device click-through was performed in this release turn. The public updater must continue to ignore this draft and the public release channel remains on the last eligible release until the gates are closed.
 
 ## Future entry template
 
