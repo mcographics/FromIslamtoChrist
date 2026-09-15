@@ -668,7 +668,7 @@ function App() {
     const desktopPrivacyRequest = window.fromDarkness?.setPrivacyState?.({ discreetMode, onboardingComplete, startupEntered: discreetStartupEntered });
     desktopPrivacyRequest?.catch(() => undefined);
     if (isNative && Capacitor.getPlatform() === 'android') {
-      const startupPrivacyRequest = PrivacyShield.setStartupPrivacy?.({ discreetMode, onboardingComplete });
+      const startupPrivacyRequest = PrivacyShield.setStartupPrivacy?.({ discreetMode, onboardingComplete, startupEntered: discreetStartupEntered });
       startupPrivacyRequest?.catch(() => undefined);
       PrivacyShield.setScreenProtection({ enabled: shouldProtectWindow }).catch(() => undefined);
       BiometricAuth.isAvailable().then((result) => setBiometricAvailable(Boolean(result?.available))).catch(() => setBiometricAvailable(false));

@@ -7,12 +7,14 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        if (PrivacyShieldPlugin.shouldUseNeutralStartup(this)) {
+        final boolean neutralStartup = PrivacyShieldPlugin.shouldUseNeutralStartup(this);
+        if (neutralStartup) {
             setTheme(R.style.AppTheme_NoActionBarLaunchNeutral);
         } else {
             setTheme(R.style.AppTheme_NoActionBarLaunch);
         }
         PrivacyShieldPlugin.applyStoredPrivacy(this);
+        PrivacyShieldPlugin.applyTaskIdentity(this, neutralStartup);
         registerPlugin(AndroidUpdaterPlugin.class);
         registerPlugin(PrivacyShieldPlugin.class);
         registerPlugin(BiometricAuthPlugin.class);

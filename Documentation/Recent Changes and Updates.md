@@ -836,6 +836,30 @@ This queue is intentionally updated as the product advances:
 - The notice documents current behavior; it does not replace real Android screenshot, task-preview, backup, lockout, biometric, accessibility, or lifecycle testing.
 - The prototype still uses local Web Storage without encryption at rest and retains the public product identity in its launcher label/icon.
 
+## 2026-09-14 — Unreleased source continuation: Discreet Mode task identity handoff
+
+### Changed
+
+- Android now receives the renderer's `startupEntered` state alongside the stored Discreet Mode and onboarding values.
+- Android applies a neutral `Private space` task title while the later neutral startup screen is waiting, then restores `From Islam to Christ` only after the user selects `OPEN PRIVATE SPACE` or otherwise intentionally enters the protected experience.
+- Android now uses a durable `SharedPreferences.commit()` for the startup privacy state before acknowledging the bridge call, reducing the chance that an immediate process close loses the user's privacy choice.
+- The neutral task-title behavior does not alter the installed launcher label or icon; that remaining boundary continues to be disclosed in the app's Privacy Notice.
+- Added [`scripts/verify-privacy-state-matrix.cjs`](../scripts/verify-privacy-state-matrix.cjs) and `npm run verify:privacy:matrix` to exercise first launch, Discreet Mode off, active protected session, next neutral launch, and onboarding reset state expectations.
+
+### Validation
+
+- `npm run verify:privacy:matrix` passed: five lifecycle cases, early Android protection, neutral task identity, Electron protection, and neutral renderer wording.
+- `npm run verify:privacy` passed with the Android bridge handoff, durable write, task identity, native splash, Electron protection, and privacy disclosure checks.
+- `node --check scripts/verify-privacy-state-matrix.cjs`, `node --check scripts/verify-privacy-configuration.cjs`, `node --check electron/main.cjs`, and `node --check electron/preload.cjs` passed.
+- `git diff --check` passed.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run; the current no-build instruction remains active.
+
+### Boundaries and follow-up
+
+- This closes the source-level state handoff that could leave the Android task title stale, but it does not prove device behavior until this source is included in an authorized APK and tested through cold start, recent-task view, screenshot/recording attempts, entry, toggle changes, and onboarding reset.
+- The existing v0.2.28 APK on the phone does not contain this continuation until a future authorized build. The phone was not connected for this source-only pass.
+- Discreet Mode remains a casual-discovery and window-protection aid, not a hidden launcher identity, encrypted-storage system, or guarantee against a person with device/storage access.
+
 ## Future entry template
 
 Use this structure for each meaningful future change:

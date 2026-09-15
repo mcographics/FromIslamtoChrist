@@ -20,6 +20,7 @@
     "verify:word-study": "node scripts/verify-word-study.cjs",
     "verify:review": "node scripts/review-content-assets.cjs",
     "verify:privacy": "node scripts/verify-privacy-configuration.cjs",
+    "verify:privacy:matrix": "node scripts/verify-privacy-state-matrix.cjs",
     "verify:updates": "node scripts/verify-update-safety.cjs",
     "verify:legal": "node scripts/verify-legal-information.cjs",
     "verify:licenses": "node scripts/verify-content-license-manifest.cjs",

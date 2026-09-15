@@ -66,13 +66,17 @@ requireText(app, /Offline-only mode/, 'Offline-only mode must be visible in the 
 requireText(app, /pauses GitHub update checks and uncached online translation requests/, 'The privacy notice must explain the offline-only network boundary.');
 requireText(app, /const shouldProtectWindow = !onboardingComplete \|\| discreetMode/, 'Renderer privacy state must protect the startup and Discreet Mode surfaces.');
 requireText(app, /setPrivacyState/, 'Renderer privacy state must reach the desktop shell.');
-requireText(app, /setStartupPrivacy/, 'Renderer privacy state must reach the Android shell.');
+requireText(app, /setStartupPrivacy\?\.\(\{ discreetMode, onboardingComplete, startupEntered: discreetStartupEntered \}\)/, 'Renderer privacy state must reach the Android shell with the startup-entry transition.');
 requireText(app, /applies Android <code>FLAG_SECURE<\/code> before the WebView starts/, 'The privacy notice must describe early Android screen protection.');
 requireText(mainActivity, /shouldUseNeutralStartup\(this\)/, 'Android must choose the neutral launch theme from stored privacy state.');
 requireText(mainActivity, /applyStoredPrivacy\(this\)/, 'Android must apply screen protection before the WebView and again on resume.');
+requireText(mainActivity, /applyTaskIdentity\(this, neutralStartup\)/, 'Android must set the neutral or branded task identity before the WebView starts.');
 requireText(privacyShield, /SharedPreferences/, 'Android startup privacy state must persist outside renderer storage.');
 requireText(privacyShield, /FLAG_SECURE/, 'Android privacy protection must use FLAG_SECURE.');
 requireText(privacyShield, /setStartupPrivacy/, 'Android must expose a startup privacy bridge.');
+requireText(privacyShield, /getBoolean\("startupEntered", true\)/, 'Android must receive the intentional startup-entry transition.');
+requireText(privacyShield, /\.commit\(\)/, 'Android must durably write the startup privacy state before acknowledging the bridge call.');
+requireText(privacyShield, /applyTaskIdentity\(activity, onboardingComplete && discreetMode && !startupEntered/, 'Android must restore the branded task identity only after intentional entry.');
 requireText(neutralSplashStyle, /AppTheme\.NoActionBarLaunchNeutral/, 'Android must provide a neutral splash theme.');
 requireText(electronMain, /setContentProtection/, 'Electron must request desktop content protection.');
 requireText(electronMain, /app:privacy-state/, 'Electron must receive renderer privacy state.');
