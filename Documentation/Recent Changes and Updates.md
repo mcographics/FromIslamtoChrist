@@ -36,7 +36,7 @@ This record is separate from:
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
 | Current build instruction | The 2026-09-15 user request authorized the next Windows/Android release build, GitHub push, and promotion of the release; v0.2.30 is now public with its signing and rights limitations stated in the release notes |
-| Current source status | v0.2.30 source commits `a1f5ece` and `06fe134` are pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. A separate debug-key-signed device copy is installed on the connected Samsung SM-G781W at version `0.2.30` / code `32`, with no uninstall or data reset. |
+| Current source status | v0.2.30 source commits `a1f5ece`, `06fe134`, and `7e62b2d` are pushed to `main`. Windows release-mode packaging completed but is `NotSigned`; Android `assembleRelease` completed as `app-release-unsigned.apk` because no production keystore is configured. A separate debug-key-signed device copy is freshly installed on the connected Samsung SM-G781W at version `0.2.30` / code `32` after the requested clean uninstall. |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
@@ -1116,6 +1116,26 @@ This queue is intentionally updated as the product advances:
 - `npm run verify:updates` passed. It now verifies that Android accepts a GitHub APK asset without filtering it solely by filename, while retaining URL, APK-type, digest, in-app download, and native-install safeguards.
 - Android's package installer remains the final compatibility gate: an APK with no certificate or a certificate different from the installed package can download but cannot install as an update. The current public v0.2.30 Android asset is unsigned, so this source correction does not make that particular artifact installable.
 - No new build or phone installation was performed for this source correction. A new authorized Android build is required before the installed phone app contains this updater change.
+
+## 2026-09-15 — v0.2.30 clean reinstall and launch verification
+
+### Clean installation
+
+- Confirmed the target device as Samsung SM-G781W through ADB and confirmed the local device APK package as `com.mcographics.fromdarknesstolight`, version name `0.2.30`, version code `32`.
+- The device APK was verified with valid APK Signature Scheme v2 and v3 signatures using the local debug certificate that matches the device-install identity: `dc272c4c52d0e4fbfab20f110ce52a7ffea0fca517fa735a898100d32d90df3b`.
+- Ran `adb uninstall com.mcographics.fromdarknesstolight`; ADB returned `Success`, and `pm path` confirmed the package was absent before installation. This intentionally removed the previous local app data so the installation could start cleanly.
+- Ran `adb install --no-incremental release/From-Islam-to-Christ-0.2.30-device-debug-signed.apk`; ADB returned `Success`.
+
+### Post-install verification
+
+- Android reports version name `0.2.30`, version code `32`, APK signing version `3`, and a new matching `firstInstallTime` / `lastUpdateTime` of `2026-09-15 03:13:08`.
+- Android resolved `com.mcographics.fromdarknesstolight/.MainActivity` successfully.
+- Launched the app with the package activity through ADB. The activity appeared as the top-resumed, visible activity in the Android task state.
+- This confirms clean package installation and launch. It does not constitute a complete visual walkthrough of every app screen.
+
+### Boundary
+
+- The phone is running the local debug-key-signed copy of the v0.2.30 release build. The public GitHub APK remains unsigned, and the later GitHub-updater source correction has not been included in a new APK because no new build was authorized.
 
 ## Future entry template
 
