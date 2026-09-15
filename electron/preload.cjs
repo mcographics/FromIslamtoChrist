@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('fromDarkness', {
   getContentDatabase: () => ipcRenderer.invoke('content:database'),
   checkForUpdate: () => ipcRenderer.invoke('app:update-check'),
   installUpdate: () => ipcRenderer.invoke('app:update-install'),
+  setPrivacyState: (state) => ipcRenderer.invoke('app:privacy-state', state),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
   onUpdateStatus: (callback) => {
     const listener = (_event, status) => callback(status);

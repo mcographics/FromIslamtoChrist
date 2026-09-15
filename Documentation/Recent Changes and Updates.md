@@ -735,6 +735,29 @@ This queue is intentionally updated as the product advances:
 - The scroll/focus behavior is source-implemented but still needs live visual verification in a packaged renderer and on the connected Android device.
 - Plan #2 remains premature because Plan #1 still has licensing, privacy-hardening, packaging, and device-verification gates open.
 
+## 2026-09-14 — Unreleased source continuation: Discreet Mode startup enforcement
+
+### Changed
+
+- Android now reads a native privacy preference before Capacitor creates the WebView. Discreet Mode applies `FLAG_SECURE` during Activity creation and again on resume, closing the early startup gap around screenshots, recording, and recent-task previews.
+- Android now chooses between the existing branded first-launch splash and a neutral lock-mark splash on later Discreet Mode launches. The first-launch decision flow remains branded as requested; after onboarding, the neutral startup is selected before the renderer appears.
+- Electron now persists the startup privacy choice outside renderer `localStorage`, chooses the neutral or branded splash before loading the renderer, requests `setContentProtection` for the protected window, and keeps the desktop title neutral until the user enters the private space.
+- Neutral desktop startup no longer loads the branded logo image at all, preventing a visible flash of Christian imagery before the neutral state is applied.
+- The privacy notice now distinguishes actual Android/Windows window protection from the limits that remain: the installed launcher name and icon are still branded, OS behavior varies, and local storage is not encrypted.
+
+### Validation
+
+- `npm run verify:privacy` passed with checks for the Android native preference, early `FLAG_SECURE`, neutral Android splash theme, Electron content protection, pre-renderer splash selection, and the user-facing limits.
+- `npm run verify:word-study`, `npm run verify:database`, `npm run verify:coverage`, `npm run verify:links`, `npm run verify:accessibility`, and `git diff --check` also passed after the privacy changes.
+- The Android device was not connected during this pass, so no packaged-device screenshot/task-preview test was claimed.
+- No renderer build, Android/Windows package, device install, GitHub push, or release was run for this source-only privacy continuation.
+
+### Boundaries and follow-up
+
+- Discreet Mode is a layered safety aid, not a guaranteed hidden identity. Someone who can inspect the launcher, app settings, storage, keyboard, clipboard, backups, screenshots from outside the protected window, or a compromised device may still discover activity.
+- The new Android native preference is introduced at source level and needs to be included in the next authorized Android build before it can affect the installed APK. The current installed v0.2.28 APK does not contain this change.
+- Windows content protection depends on the packaged Electron runtime and operating-system support; it cannot protect external monitors, cameras, or capture paths outside the app window.
+
 ## 2026-09-14 — Unreleased source continuation: original-language search and source handoffs
 
 ### Changed

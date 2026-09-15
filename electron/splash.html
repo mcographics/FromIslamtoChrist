@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>From Islam to Christ</title>
+    <title>Preparing private space</title>
     <style>
       :root {
         color-scheme: dark;
@@ -26,6 +26,8 @@
         overflow: hidden;
         background: radial-gradient(circle at 50% 42%, #1d3d4a 0%, #10212d 62%);
       }
+
+      body:not(.startup-ready) main { visibility: hidden; }
 
       main {
         display: grid;
@@ -51,12 +53,49 @@
         letter-spacing: .08em;
         text-transform: uppercase;
       }
+
+      .neutral-mark {
+        display: none;
+        width: 104px;
+        height: 104px;
+        border: 1px solid rgba(168, 221, 208, .35);
+        border-radius: 30px;
+        background: rgba(91, 172, 158, .13);
+        box-shadow: 0 0 0 12px rgba(91, 172, 158, .04), 0 18px 40px rgba(0, 0, 0, .22);
+      }
+
+      .neutral-mark::before {
+        content: "";
+        display: block;
+        width: 42px;
+        height: 32px;
+        margin: 38px auto 0;
+        border: 3px solid #a8ddd0;
+        border-radius: 6px;
+        box-shadow: 0 -18px 0 -9px #a8ddd0;
+      }
+
+      body.neutral-startup img { display: none; }
+      body.neutral-startup .neutral-mark { display: block; }
+      body.neutral-startup p { color: #a8ddd0; }
     </style>
   </head>
   <body>
     <main>
-      <img src="../logo/logo.png" alt="From Islam to Christ" />
+      <img data-branded-src="../logo/logo.png" alt="From Islam to Christ" />
+      <span class="neutral-mark" aria-hidden="true"></span>
       <p>Preparing your private library</p>
     </main>
+    <script>
+      const isNeutral = new URLSearchParams(window.location.search).get('neutral') === '1';
+      const brandedImage = document.querySelector('img');
+      if (isNeutral) {
+        document.body.classList.add('neutral-startup');
+        document.querySelector('p').textContent = 'Preparing private space';
+      } else {
+        brandedImage.src = brandedImage.dataset.brandedSrc;
+      }
+      document.body.classList.add('startup-ready');
+    </script>
   </body>
 </html>

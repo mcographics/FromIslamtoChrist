@@ -664,11 +664,17 @@ function App() {
   }, [theme]);
   useEffect(() => {
     const isNative = typeof window.Capacitor?.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
-    if (!isNative) return undefined;
-    PrivacyShield.setScreenProtection({ enabled: discreetMode }).catch(() => undefined);
-    BiometricAuth.isAvailable().then((result) => setBiometricAvailable(Boolean(result?.available))).catch(() => setBiometricAvailable(false));
+    const shouldProtectWindow = !onboardingComplete || discreetMode;
+    const desktopPrivacyRequest = window.fromDarkness?.setPrivacyState?.({ discreetMode, onboardingComplete, startupEntered: discreetStartupEntered });
+    desktopPrivacyRequest?.catch(() => undefined);
+    if (isNative && Capacitor.getPlatform() === 'android') {
+      const startupPrivacyRequest = PrivacyShield.setStartupPrivacy?.({ discreetMode, onboardingComplete });
+      startupPrivacyRequest?.catch(() => undefined);
+      PrivacyShield.setScreenProtection({ enabled: shouldProtectWindow }).catch(() => undefined);
+      BiometricAuth.isAvailable().then((result) => setBiometricAvailable(Boolean(result?.available))).catch(() => setBiometricAvailable(false));
+    }
     return undefined;
-  }, [discreetMode]);
+  }, [discreetMode, onboardingComplete, discreetStartupEntered]);
   useEffect(() => {
     function handleSearchShortcut(event) {
       if (privacyPin && privacyLocked) return;
@@ -4198,7 +4204,7 @@ function PrivacyNotice({ onClose }) {
         <ul className="privacy-boundary-list">
           <li><strong>Identity:</strong> the launcher label and icon still identify the app as From Islam to Christ. The neutral startup screen only reduces casual discovery after launch.</li>
           <li><strong>Notifications:</strong> this build creates no notifications and requests no notification permission, so it does not place reading activity in notification history.</li>
-          <li><strong>Screen and task previews:</strong> on Android, enabled Discreet Mode asks the operating system to protect this window from screenshots, screen recording, and recent-task previews. Device manufacturers and OS versions may handle that request differently.</li>
+          <li><strong>Screen and task previews:</strong> enabled Discreet Mode applies Android <code>FLAG_SECURE</code> before the WebView starts, protecting the window from screenshots, screen recording, and recent-task previews where Android honors the flag. Windows packaged builds also request Electron content protection. Device manufacturers, operating systems, and external capture tools may handle those requests differently.</li>
           <li><strong>Clipboard and sharing:</strong> copying a verse or using the system share surface can expose text to the clipboard or another app. Share only when it is safe; the app does not share reading or journey activity automatically.</li>
           <li><strong>Storage and backup:</strong> saved study state stays in local app storage and is excluded from Android cloud backup and device-to-device transfer. It is not encrypted at rest in this prototype, and someone with device or storage access may still inspect it.</li>
           <li><strong>Offline-only mode:</strong> when enabled, the app pauses GitHub update checks and uncached online translation requests. Bundled Bible text, local study content, and translations already cached on this device remain available; turning the setting off is required to discover new releases or request missing public translations.</li>

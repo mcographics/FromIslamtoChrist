@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const fsSync = require('node:fs');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
@@ -12,6 +13,32 @@ let mainWindow = null;
 let splashWindow = null;
 let lastUpdateStatus = { status: 'idle' };
 
+function startupPrivacyPath() {
+  return path.join(app.getPath('userData'), 'startup-privacy.json');
+}
+
+function readStartupPrivacy() {
+  try {
+    const stored = JSON.parse(fsSync.readFileSync(startupPrivacyPath(), 'utf8'));
+    return {
+      discreetMode: stored?.discreetMode !== false,
+      onboardingComplete: stored?.onboardingComplete === true,
+    };
+  } catch {
+    return { discreetMode: true, onboardingComplete: false };
+  }
+}
+
+function applyWindowPrivacy(window, state, startupEntered = false) {
+  if (!window || window.isDestroyed()) return;
+  const discreetMode = state?.discreetMode !== false;
+  const onboardingComplete = state?.onboardingComplete === true;
+  const protectedWindow = !onboardingComplete || discreetMode;
+  window.setContentProtection?.(protectedWindow);
+  const neutralStartup = onboardingComplete && discreetMode && !startupEntered;
+  window.setTitle(neutralStartup ? 'Private space' : 'From Islam to Christ');
+}
+
 ipcMain.handle('content:database', async () => {
   try {
     const database = await fs.readFile(contentDatabasePath);
@@ -19,6 +46,17 @@ ipcMain.handle('content:database', async () => {
   } catch (error) {
     throw new Error(`Content database unavailable: ${error.message}`);
   }
+});
+
+ipcMain.handle('app:privacy-state', async (_event, value) => {
+  const state = {
+    discreetMode: value?.discreetMode !== false,
+    onboardingComplete: value?.onboardingComplete === true,
+  };
+  await fs.mkdir(path.dirname(startupPrivacyPath()), { recursive: true });
+  await fs.writeFile(startupPrivacyPath(), JSON.stringify(state), 'utf8');
+  applyWindowPrivacy(mainWindow, state, value?.startupEntered === true);
+  return { ok: true, protected: !state.onboardingComplete || state.discreetMode };
 });
 
 function publishUpdateStatus(status, details = {}) {
@@ -75,6 +113,7 @@ ipcMain.handle('app:open-external', async (_event, value) => {
 });
 
 function createWindow() {
+  const startupPrivacy = readStartupPrivacy();
   const window = new BrowserWindow({
     width: 1440,
     height: 940,
@@ -82,7 +121,7 @@ function createWindow() {
     minHeight: 680,
     backgroundColor: '#10212d',
     icon: appIconPath,
-    title: 'From Islam to Christ',
+    title: startupPrivacy.onboardingComplete && startupPrivacy.discreetMode ? 'Private space' : 'From Islam to Christ',
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -91,6 +130,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+
+  applyWindowPrivacy(window, startupPrivacy);
+  window.on('page-title-updated', (event) => event.preventDefault());
 
   window.setMenuBarVisibility(false);
 
@@ -112,6 +154,8 @@ function createWindow() {
 }
 
 function createSplashWindow() {
+  const startupPrivacy = readStartupPrivacy();
+  const neutralStartup = startupPrivacy.onboardingComplete && startupPrivacy.discreetMode;
   splashWindow = new BrowserWindow({
     width: 520,
     height: 520,
@@ -131,7 +175,7 @@ function createSplashWindow() {
     },
   });
 
-  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'), { query: { neutral: neutralStartup ? '1' : '0' } });
 }
 
 app.whenReady().then(() => {
