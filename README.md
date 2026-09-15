@@ -1,5 +1,7 @@
 # From Islam to Christ
 
+![From Islam to Christ — Questions, Search, Truth, A New Beginning](logo/banner.png)
+
 Electron + React + Vite prototype for From Islam to Christ, based on `Documentation/plan.md` and `Concept/concept.png`.
 
 The public product name is From Islam to Christ. Existing technical identifiers such as the Android application ID and generated database filename still use `fromdarknesstolight` for compatibility with the current installed app and release pipeline.

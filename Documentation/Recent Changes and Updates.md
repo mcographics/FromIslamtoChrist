@@ -40,6 +40,12 @@ This record is separate from:
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
 
+## 2026-09-14 — GitHub README banner
+
+- Added the existing [`logo/banner.png`](../logo/banner.png) artwork to the top of the GitHub README using a repository-relative image path.
+- The README banner now gives visitors an immediate visual identity for **From Islam to Christ** while preserving the existing product description and release/download section.
+- No application source, build artifact, release asset, or runtime behavior changed in this documentation-only update.
+
 ## 2026-09-14 — v0.2.28 cross-platform GitHub release and phone installation
 
 ### GitHub publication
