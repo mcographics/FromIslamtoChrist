@@ -35,10 +35,32 @@ This record is separate from:
 | Android shell | Capacitor 8 wrapping the shared renderer |
 | Runtime database | `public/data/from-darkness-to-light.db` |
 | Database schema | Version 5 |
-| Current build instruction | The 2026-09-14 user request authorizes this v0.2.28 build and source/website publication; device installation remains separate |
-| Current source status | v0.2.28 Windows and Android local artifacts are packaged; source commit `d45df25` is pushed; public release remains gated |
+| Current build instruction | The 2026-09-14 user request authorized the v0.2.28 build, device installation, and manual cross-platform GitHub release; no further build is implied |
+| Current source status | v0.2.28 Windows and Android assets are packaged and published at GitHub; the Android asset is direct-device debug-key signed and the Windows installer is not Authenticode-signed |
 
 The public-facing product name is **From Islam to Christ**. The Android application ID and the generated runtime database filename retain the older `fromdarknesstolight` / `from-darkness-to-light` technical identifiers for compatibility with the existing application and release pipeline.
+
+## 2026-09-14 — v0.2.28 cross-platform GitHub release and phone installation
+
+### GitHub publication
+
+- Published [From Islam to Christ v0.2.28](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.28) from the v0.2.28 source on `main`.
+- Published the product-named [Windows x64 installer](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.28/From-Islam-to-Christ-0.2.28-x64.exe), the matching `latest.yml`, and the matching `.blockmap` for the Windows updater.
+- Published the product-named [Android APK](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.28/From-Islam-to-Christ-0.2.28.apk). The incorrectly named `From-Islam-to-Christ-0.2.28-device-debug-signed.apk` duplicate was removed from the release so the updater sees the expected product-named asset.
+- GitHub remote asset evidence: Windows installer `154,492,718` bytes / SHA-256 `3c319a9839263b86b2b75be407b0a7601775c572bca5842e027db1d13056f4a4`; Android APK `42,277,332` bytes / SHA-256 `6bc20bcd9423d11ec9cc8992be55d0f008144958699b40c93d866807512cbb36`; blockmap `162,171` bytes / SHA-256 `cbcf8b48bf23e623452457bd4ca075820ea0232a0603b048a6655f08bc91ea78`; `latest.yml` `368` bytes / SHA-256 `7de6f646bb4bb782de368c8aa8daea6c8939ab80f3394fe7aa71699ae21b7ce4`.
+- The release title is **From Islam to Christ v0.2.28** and the release is public, non-draft, and non-prerelease. The release notes include the v0.2.27 comparison link and the direct-device signing/content-rights limitations.
+
+### Phone installation
+
+- The first attempt to install the local release-variant APK was correctly rejected by Android because it had no certificate (`INSTALL_PARSE_FAILED_NO_CERTIFICATES`).
+- A separate device-install copy was signed with the local Android debug keystore. Its certificate SHA-256 is `dc272c4c52d0e4fbfab20f110ce52a7ffea0fca517fa735a898100d32d90df3b`, matching the existing app on the phone.
+- `adb install -r --no-incremental` then returned `Success` for package `com.mcographics.fromdarknesstolight`. The connected Samsung `SM-G781W` reports version `0.2.28`, version code `30`, and `MainActivity` was confirmed foreground after launch. Existing app data was preserved; no uninstall or data reset was performed.
+
+### Release boundaries
+
+- The Windows installer remains unsigned under Authenticode.
+- The Android APK verifies with APK Signature Scheme v2 and v3 but uses the Android debug certificate for this direct-device release; it is not Google Play production-signed.
+- The strict rights audit remains `0 cleared / 1,566 pending review`, so this manual publication does not close the content licensing or editorial gate. The normal tag-driven workflow still requires repository Android signing secrets and the release license gate for a future production release.
 
 ## 2026-09-14 — v0.2.28 authorized cross-platform build
 

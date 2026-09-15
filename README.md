@@ -4,6 +4,15 @@ Electron + React + Vite prototype for From Islam to Christ, based on `Documentat
 
 The public product name is From Islam to Christ. Existing technical identifiers such as the Android application ID and generated database filename still use `fromdarknesstolight` for compatibility with the current installed app and release pipeline.
 
+## Current public release
+
+The current GitHub release is [From Islam to Christ v0.2.28](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.28).
+
+- [Windows x64 installer](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.28/From-Islam-to-Christ-0.2.28-x64.exe)
+- [Android APK](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.28/From-Islam-to-Christ-0.2.28.apk)
+
+The v0.2.28 Windows installer is packaged but not Authenticode-signed. The Android APK is signed with the matching local Android debug key so it can update the connected development phone without uninstalling the app; it is not Google Play production-signed. The release notes record these limitations, the manual publication, and the open content-rights review gate.
+
 ## Current prototype slice
 
 - Home dashboard with the dawn-to-light visual direction and a locally selected daily verse from the full offline Bible corpus

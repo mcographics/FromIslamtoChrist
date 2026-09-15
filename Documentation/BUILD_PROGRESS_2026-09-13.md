@@ -9,6 +9,14 @@
 
 **Latest public release at build start:** [From Islam to Christ v0.2.27](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.27)
 
+## v0.2.28 public GitHub release and connected-phone installation — 2026-09-14
+
+- Published [From Islam to Christ v0.2.28](https://github.com/mcographics/FromIslamtoChrist/releases/tag/v0.2.28) with the Windows installer, `latest.yml`, Windows blockmap, and product-named Android APK.
+- Public assets: [Windows installer](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.28/From-Islam-to-Christ-0.2.28-x64.exe) and [Android APK](https://github.com/mcographics/FromIslamtoChrist/releases/download/v0.2.28/From-Islam-to-Christ-0.2.28.apk).
+- Remote asset hashes: Windows SHA-256 `3c319a9839263b86b2b75be407b0a7601775c572bca5842e027db1d13056f4a4`, Android SHA-256 `6bc20bcd9423d11ec9cc8992be55d0f008144958699b40c93d866807512cbb36`, blockmap SHA-256 `cbcf8b48bf23e623452457bd4ca075820ea0232a0603b048a6655f08bc91ea78`, and `latest.yml` SHA-256 `7de6f646bb4bb782de368c8aa8daea6c8939ab80f3394fe7aa71699ae21b7ce4`.
+- The local unsigned v0.2.28 APK could not be installed because Android requires a certificate. A copy signed with the matching local Android debug key was installed in place with `adb install -r`, preserving app data. The phone reports version `0.2.28`, version code `30`, and `MainActivity` foreground after launch.
+- This is a manually published direct-device release at the user's request. Windows is not Authenticode-signed, Android is not Google Play production-signed, and the strict content-rights audit remains `0 cleared / 1,566 pending review`.
+
 ## v0.2.28 build continuation — source, packaging, and release boundary — 2026-09-14
 
 - Advanced the local version boundary to `0.2.28` and Android version code `30` for the newly authorized Windows and Android build.
